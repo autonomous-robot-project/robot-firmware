@@ -1,2 +1,3 @@
-# microcontroller-code
-Código embarcado no microcontrolador para atuar nos motores e ler sensores
+# AMR Project - Microcontroller Code
+
+Embedded code for motor actuation, sensor reading, communication with the robot's main system and security logic.
