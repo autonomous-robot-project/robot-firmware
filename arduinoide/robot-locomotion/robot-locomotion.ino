@@ -66,26 +66,26 @@ void pidControlTask(void *pvParameters) {
   int16_t count_right = 0, last_count_right = 0;
 
   while (1) {
-    // // --- Etapa 1: Ler os Encoders ---
-    // pcnt_get_counter_value(PCNT_UNIT_0, &count_left);
-    // pcnt_get_counter_value(PCNT_UNIT_1, &count_right);
+    // --- Etapa 1: Ler os Encoders ---
+    pcnt_get_counter_value(PCNT_UNIT_0, &count_left);
+    pcnt_get_counter_value(PCNT_UNIT_1, &count_right);
 
-    // int16_t delta_count_left = count_left - last_count_left;
-    // int16_t delta_count_right = count_right - last_count_right;
-    // last_count_left = count_left;
-    // last_count_right = count_right;
+    int16_t delta_count_left = count_left - last_count_left;
+    int16_t delta_count_right = count_right - last_count_right;
+    last_count_left = count_left;
+    last_count_right = count_right;
 
-    // // --- Etapa 2: Calcular a Velocidade (RPM) ---
-    // rpm_left = (double)delta_count_left / ENCODER_PULSES_PER_REV * (60000.0 / CONTROL_SAMPLE_TIME_MS);
-    // rpm_right = (double)delta_count_right / ENCODER_PULSES_PER_REV * (60000.0 / CONTROL_SAMPLE_TIME_MS);
+    // --- Etapa 2: Calcular a Velocidade (RPM) ---
+    rpm_left = (double)delta_count_left / ENCODER_PULSES_PER_REV * (60000.0 / CONTROL_SAMPLE_TIME_MS);
+    rpm_right = (double)delta_count_right / ENCODER_PULSES_PER_REV * (60000.0 / CONTROL_SAMPLE_TIME_MS);
 
-    // // --- Etapa 3: Calcular o PID ---
-    // pidLeft.Compute();
-    // pidRight.Compute();
+    // --- Etapa 3: Calcular o PID ---
+    pidLeft.Compute();
+    pidRight.Compute();
     
     // --- Etapa 4: Atuar nos Motores ---
-    motorLeft.run(setpoint_left);
-    motorRight.run(setpoint_right);
+    motorLeft.run(output_left);
+    motorRight.run(output_right);
 
     // // Espera precisamente pelo próximo ciclo
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
@@ -123,7 +123,6 @@ void communicationTask(void *pvParameters) {
       setpoint_right = 0;
     }
 
-
     vTaskDelay(pdMS_TO_TICKS(20));
   }
 }
@@ -134,7 +133,7 @@ void communicationTask(void *pvParameters) {
 void setup_encoder(int encoder_pin, pcnt_unit_t pcnt_unit) {
   pcnt_config_t pcnt_config = {
       .pulse_gpio_num = encoder_pin,
-      .ctrl_gpio_num = -1, // Pino de controle (direção), não temos, então -1
+      .ctrl_gpio_num = -1,             // Pino de controle (direção), não temos, então -1
       .lctrl_mode = PCNT_MODE_DISABLE, // Não usar controle de nível baixo
       .hctrl_mode = PCNT_MODE_DISABLE, // Não usar controle de nível alto
       .pos_mode = PCNT_COUNT_INC,      // Incrementar o contador na borda de subida
