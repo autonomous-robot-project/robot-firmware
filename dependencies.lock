@@ -1,0 +1,39 @@
+dependencies:
+  idf:
+    source:
+      type: idf
+    version: 5.2.6
+  micro-ros/micro_ros_espidf_component:
+    component_hash: 389f0c0ebe97c30717076d49609eb29770220a3518f558fecfd0c915071f8efe
+    dependencies:
+    - name: espressif/esp_hosted
+      registry_url: https://components.espressif.com
+      require: private
+      rules:
+      - if: target in [esp32p4]
+      version: ~2
+    - name: espressif/esp_wifi_remote
+      registry_url: https://components.espressif.com
+      require: private
+      rules:
+      - if: target in [esp32p4]
+      version: '>=0.10,<2.0'
+    - name: idf
+      require: private
+      version: '>=5.2'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    targets:
+    - esp32
+    - esp32s2
+    - esp32s3
+    - esp32c3
+    - esp32c6
+    - esp32p4
+    version: 24.0.0
+direct_dependencies:
+- micro-ros/micro_ros_espidf_component
+manifest_hash: 25f18a747114482e594b78bd66772a231025a84cbb7696e3b863c7cf2e1917a8
+target: esp32s3
+version: 2.0.0
