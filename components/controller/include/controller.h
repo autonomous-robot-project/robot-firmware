@@ -7,6 +7,7 @@
 #include "instrumentation/expiry_meter.h"
 #include "instrumentation/instrumentation.h"
 #include "channels/latest_value_channel.h"
+#include "actuation/motor_driver.h"
 #include "interface/state.h"
 
 // Controller layer (ADR 018): the real-time control task on core 1 and its latest-value channels.
@@ -14,11 +15,12 @@
 class Controller
 {
     public:
-        Controller() = default;
+        Controller();
         Controller(const Controller &) = delete;
         Controller &operator=(const Controller &) = delete;
 
-        // Starts the control task. Called once, at boot.
+        // Starts the motor drivers, with the wheels free, and then the control task. Called once,
+        // at boot.
         void start();
 
         // Producer side of the command channel, called by the link. Stamps the arrival time,
@@ -63,4 +65,6 @@ class Controller
         LatestValueChannel<State> states_;
         LatestValueChannel<Instrumentation> instrumentation_;
         ExpiryMeter expiry_meter_;
+        MotorDriver left_motor_;
+        MotorDriver right_motor_;
 };

@@ -11,3 +11,6 @@ CONFIG_MICRO_ROS_ESP_UART_TRANSPORT=y
 # 1 ms tick: the link waits for commands with timeouts shorter than the 10 ms of the default tick,
 # which would round them to zero and spin the task. The control period T_C stays 10 ms.
 CONFIG_FREERTOS_HZ=1000
+
+# LEDC duty updates run in the control task, whose code V-09 asks to be in IRAM
+CONFIG_LEDC_CTRL_FUNC_IN_IRAM=y

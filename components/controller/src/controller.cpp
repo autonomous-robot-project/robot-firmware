@@ -10,8 +10,14 @@ static std::chrono::microseconds now()
     return std::chrono::microseconds{esp_timer_get_time()};
 }
 
+Controller::Controller() : left_motor_(LEFT_MOTOR), right_motor_(RIGHT_MOTOR)
+{
+}
+
 void Controller::start()
 {
+    left_motor_.start();
+    right_motor_.start();
     const BaseType_t created = xTaskCreatePinnedToCore(
         &Controller::task_entry,
         "control",
@@ -66,6 +72,11 @@ void Controller::control_cycle(std::chrono::microseconds release)
 
     // Decided once per cycle: every step below uses this copy, already expired if too old.
     const Command command = command_in_force(latest, release);
+
+    // Until the PI exists, the only reference is the stop: both wheels brake.
+    constexpr float brake = 0.0f;
+    left_motor_.apply(brake);
+    right_motor_.apply(brake);
 
     State state;
     state.echo = command;
