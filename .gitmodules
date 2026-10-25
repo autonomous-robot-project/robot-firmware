@@ -1,0 +1,3 @@
+[submodule "extra_ros_packages/robot_interfaces"]
+	path = extra_ros_packages/robot_interfaces
+	url = https://github.com/autonomous-robot-project/robot-interfaces.git
