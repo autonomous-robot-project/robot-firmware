@@ -142,14 +142,14 @@ bool Session::create_executor()
 }
 
 // The destroy functions run when the agent is gone, so errors are expected; they are only logged
-// at debug level. Each call stays outside the log macro: ESP_LOGD is compiled out below the debug
-// level, together with its arguments.
+// at debug level. Each call stays outside the log macro, which is compiled out below the debug
+// level together with its arguments; the result is [[maybe_unused]] for the same reason.
 
 void Session::destroy_executor()
 {
     if (executor_ok_)
     {
-        const rcl_ret_t ret = rclc_executor_fini(&executor_);
+        [[maybe_unused]] const rcl_ret_t ret = rclc_executor_fini(&executor_);
         ESP_LOGD(TAG, "executor fini: %d", static_cast<int>(ret));
     }
 }
@@ -158,7 +158,7 @@ void Session::destroy_state_publisher()
 {
     if (publisher_ok_)
     {
-        const rcl_ret_t ret = rcl_publisher_fini(&state_publisher_, &node_);
+        [[maybe_unused]] const rcl_ret_t ret = rcl_publisher_fini(&state_publisher_, &node_);
         ESP_LOGD(TAG, "publisher fini: %d", static_cast<int>(ret));
     }
 }
@@ -167,7 +167,9 @@ void Session::destroy_command_subscription()
 {
     if (subscription_ok_)
     {
-        const rcl_ret_t ret = rcl_subscription_fini(&command_subscription_, &node_);
+        [[maybe_unused]] const rcl_ret_t ret = rcl_subscription_fini(
+            &command_subscription_, &node_
+        );
         ESP_LOGD(TAG, "subscription fini: %d", static_cast<int>(ret));
     }
 }
@@ -176,7 +178,7 @@ void Session::destroy_node()
 {
     if (node_ok_)
     {
-        const rcl_ret_t ret = rcl_node_fini(&node_);
+        [[maybe_unused]] const rcl_ret_t ret = rcl_node_fini(&node_);
         ESP_LOGD(TAG, "node fini: %d", static_cast<int>(ret));
     }
 }
@@ -185,11 +187,13 @@ void Session::destroy_support()
 {
     if (support_ok_)
     {
-        const rcl_ret_t ret = rclc_support_fini(&support_);
+        [[maybe_unused]] const rcl_ret_t ret = rclc_support_fini(&support_);
         ESP_LOGD(TAG, "support fini: %d", static_cast<int>(ret));
     }
 }
 
+// The signature is fixed by rclc, so the two pointers cannot be made distinct types.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 void Session::on_command(const void *message, void *session)
 {
     const auto &command_message = *static_cast<const CommandMessage *>(message);

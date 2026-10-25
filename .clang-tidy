@@ -1,0 +1,4 @@
+# Static analysis of the firmware: likely bugs (bugprone) and the clang static analyzer.
+# Run it with the clang toolchain in a separate build directory (README, "Static analysis").
+Checks: 'clang-analyzer-*,bugprone-*'
+HeaderFilterRegex: '.*/components/.*'
