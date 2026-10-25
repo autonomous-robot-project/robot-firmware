@@ -34,6 +34,6 @@ dependencies:
     version: 24.0.0
 direct_dependencies:
 - micro-ros/micro_ros_espidf_component
-manifest_hash: 25f18a747114482e594b78bd66772a231025a84cbb7696e3b863c7cf2e1917a8
+manifest_hash: 8f693e73db96259c6cb06e1eaccdfba352f8fb6823da46048d76898afee32917
 target: esp32s3
 version: 2.0.0

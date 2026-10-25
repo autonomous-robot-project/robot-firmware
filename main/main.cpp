@@ -1,8 +1,7 @@
-#include "uros_task.h"
-#include "uros_transport.h"
+#include "link.h"
 
-extern "C" void app_main(void)
+// Entry point: only starts the components (ADR 018).
+extern "C" void app_main()
 {
-    uros_transport_register();
-    uros_task_start();
+    link_start();
 }

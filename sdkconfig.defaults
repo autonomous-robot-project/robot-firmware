@@ -1,10 +1,9 @@
 CONFIG_IDF_TARGET="esp32s3"
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
 
-# Console na USB nativa (GPIO 19/20); a UART0 fica livre para o micro-ROS
+# Log console on the native USB (GPIO 19/20); the link uses UART1 on the GPIO (ADR 043)
 CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
 
+# micro-ROS over XRCE-DDS with the custom UART transport of the link component
 CONFIG_MICRO_ROS_ESP_XRCE_DDS_MIDDLEWARE=y
 CONFIG_MICRO_ROS_ESP_UART_TRANSPORT=y
-CONFIG_ESP_TASK_WDT_INIT=n
-
-CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
