@@ -38,7 +38,7 @@ Session::Session(Controller &controller) : controller_(controller)
 {
     // Stops at the first failure; the destructor destroys whatever was created.
     ready_ = create_support() && create_node() && create_command_subscription() &&
-             create_state_publisher() && create_executor();
+             create_state_publisher() && create_instrumentation_publisher() && create_executor();
 }
 
 Session::~Session()
@@ -52,6 +52,7 @@ Session::~Session()
         );
     }
     destroy_executor();
+    destroy_instrumentation_publisher();
     destroy_state_publisher();
     destroy_command_subscription();
     destroy_node();
@@ -94,6 +95,23 @@ void Session::publish_state()
     }
 }
 
+void Session::publish_instrumentation()
+{
+    const std::optional<Instrumentation> instrumentation = controller_.latest_instrumentation();
+    if (!instrumentation)
+    {
+        return;
+    }
+    instrumentation_message_ = to_message(*instrumentation);
+    const rcl_ret_t ret = rcl_publish(
+        &instrumentation_publisher_, &instrumentation_message_, nullptr
+    );
+    if (ret != RCL_RET_OK)
+    {
+        ESP_LOGD(TAG, "instrumentation publish failed: %d", static_cast<int>(ret));
+    }
+}
+
 bool Session::create_support()
 {
     const rcl_ret_t ret = rclc_support_init(&support_, 0, nullptr, &allocator_);
@@ -128,6 +146,20 @@ bool Session::create_state_publisher()
     return publisher_ok_;
 }
 
+bool Session::create_instrumentation_publisher()
+{
+    const rmw_qos_profile_t qos = link_qos();
+    const rcl_ret_t ret = rclc_publisher_init(
+        &instrumentation_publisher_,
+        &node_,
+        instrumentation_type_support(),
+        INSTRUMENTATION_TOPIC,
+        &qos
+    );
+    instrumentation_publisher_ok_ = succeeded(ret, "instrumentation publisher init");
+    return instrumentation_publisher_ok_;
+}
+
 bool Session::create_executor()
 {
     constexpr size_t handles = 1;  // the command subscription
@@ -160,6 +192,17 @@ void Session::destroy_executor()
     {
         [[maybe_unused]] const rcl_ret_t ret = rclc_executor_fini(&executor_);
         ESP_LOGD(TAG, "executor fini: %d", static_cast<int>(ret));
+    }
+}
+
+void Session::destroy_instrumentation_publisher()
+{
+    if (instrumentation_publisher_ok_)
+    {
+        [[maybe_unused]] const rcl_ret_t ret = rcl_publisher_fini(
+            &instrumentation_publisher_, &node_
+        );
+        ESP_LOGD(TAG, "instrumentation publisher fini: %d", static_cast<int>(ret));
     }
 }
 

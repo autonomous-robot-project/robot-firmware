@@ -32,6 +32,8 @@ constexpr std::chrono::milliseconds AGENT_RETRY_PERIOD{500};
 constexpr const char *NODE_NAME = "controller";
 constexpr const char *COMMAND_TOPIC = "/controller/command";
 constexpr const char *STATE_TOPIC = "/controller/state";
+constexpr const char *INSTRUMENTATION_TOPIC = "/controller/instrumentation";  // ADR 028
 
 // --- Exchange with the controller ---
-constexpr std::chrono::milliseconds STATE_PERIOD{10};  // 100 Hz = 1/T_C (ADR 025)
+constexpr std::chrono::milliseconds STATE_PERIOD{10};             // 100 Hz = 1/T_C (ADR 025)
+constexpr std::chrono::milliseconds INSTRUMENTATION_PERIOD{100};  // 10 Hz (ADR 025)

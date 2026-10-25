@@ -4,6 +4,8 @@
 #include <optional>
 
 #include "command.h"
+#include "expiry_meter.h"
+#include "instrumentation.h"
 #include "latest_value_channel.h"
 #include "state.h"
 
@@ -26,6 +28,9 @@ class Controller
         // Consumer side of the state channel, called by the link. Empty before the first cycle.
         [[nodiscard]] std::optional<State> latest_state() const;
 
+        // Consumer side of the instrumentation channel (ADR 028). Empty before the first cycle.
+        [[nodiscard]] std::optional<Instrumentation> latest_instrumentation() const;
+
     private:
         struct StampedCommand
         {
@@ -44,9 +49,16 @@ class Controller
 
         void control_cycle();
 
-        // The received command, or TWIST(0, 0) if none arrived within T_CMD.
-        [[nodiscard]] Command command_in_force(std::chrono::microseconds now) const;
+        // The latest command, or TWIST(0, 0) if none arrived or it is older than T_CMD.
+        [[nodiscard]] static Command command_in_force(
+            const std::optional<StampedCommand> &latest, std::chrono::microseconds now
+        );
+
+        // Measurements of the cycle for the verifications (ADR 028); never read by the control.
+        void measure(const std::optional<StampedCommand> &latest, std::chrono::microseconds cycle);
 
         LatestValueChannel<StampedCommand> commands_;
         LatestValueChannel<State> states_;
+        LatestValueChannel<Instrumentation> instrumentation_;
+        ExpiryMeter expiry_meter_;
 };

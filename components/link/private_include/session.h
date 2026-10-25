@@ -10,7 +10,8 @@
 class Controller;
 
 // One micro-ROS session with the agent, alive while the object exists (RAII): the constructor
-// creates the support, the node, the command subscription, the state publisher and the executor;
+// creates the support, the node, the command subscription, the state and instrumentation
+// publishers and the executor;
 // the destructor destroys whatever was created, in reverse order.
 // Not copyable nor movable: the entities keep pointers into each other.
 class Session
@@ -30,15 +31,20 @@ class Session
         // Publishes the latest state of the controller, if there is one yet.
         void publish_state();
 
+        // Publishes the latest instrumentation of the controller, if there is one yet (ADR 028).
+        void publish_instrumentation();
+
     private:
         // Each one creates an entity, logs a failure and returns whether it succeeded.
         bool create_support();
         bool create_node();
         bool create_command_subscription();
         bool create_state_publisher();
+        bool create_instrumentation_publisher();
         bool create_executor();
 
         void destroy_executor();
+        void destroy_instrumentation_publisher();
         void destroy_state_publisher();
         void destroy_command_subscription();
         void destroy_node();
@@ -54,15 +60,18 @@ class Session
         rcl_node_t node_ = rcl_get_zero_initialized_node();
         rcl_subscription_t command_subscription_ = rcl_get_zero_initialized_subscription();
         rcl_publisher_t state_publisher_ = rcl_get_zero_initialized_publisher();
+        rcl_publisher_t instrumentation_publisher_ = rcl_get_zero_initialized_publisher();
         rclc_executor_t executor_ = rclc_executor_get_zero_initialized_executor();
 
         CommandMessage command_message_{};
         StateMessage state_message_{};
+        InstrumentationMessage instrumentation_message_{};
 
         bool support_ok_ = false;
         bool node_ok_ = false;
         bool subscription_ok_ = false;
         bool publisher_ok_ = false;
+        bool instrumentation_publisher_ok_ = false;
         bool executor_ok_ = false;
         bool ready_ = false;  // every entity created
 };

@@ -66,3 +66,11 @@ StateMessage to_message(const State &state)
         .echo = to_message(state.echo),
     };
 }
+
+InstrumentationMessage to_message(const Instrumentation &instrumentation)
+{
+    return InstrumentationMessage{
+        .expiries = instrumentation.expiries,
+        .expiry_delay_us = instrumentation.expiry_delay_us,
+    };
+}

@@ -66,6 +66,7 @@ void Link::serve(Session &session, const Agent &agent)
     const TickType_t state_period = to_ticks(STATE_PERIOD);
     TickType_t next_publication = xTaskGetTickCount() + state_period;
     TickType_t last_ping = xTaskGetTickCount();
+    TickType_t last_instrumentation = xTaskGetTickCount();
     for (;;)
     {
         // Each command reaches the controller as soon as it arrives, so the controller stamps
@@ -73,6 +74,12 @@ void Link::serve(Session &session, const Agent &agent)
         session.receive_commands_until(next_publication);
         session.publish_state();
         next_publication = next_deadline(next_publication, state_period);
+
+        if (xTaskGetTickCount() - last_instrumentation >= to_ticks(INSTRUMENTATION_PERIOD))
+        {
+            last_instrumentation = xTaskGetTickCount();
+            session.publish_instrumentation();
+        }
 
         if (xTaskGetTickCount() - last_ping >= to_ticks(AGENT_PING_PERIOD))
         {

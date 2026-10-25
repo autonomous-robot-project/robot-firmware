@@ -3,6 +3,7 @@
 #include <optional>
 
 #include "command.h"
+#include "instrumentation.h"
 #include "messages.h"
 #include "state.h"
 
@@ -13,3 +14,5 @@
 std::optional<Command> to_command(const CommandMessage &message);
 
 StateMessage to_message(const State &state);
+
+InstrumentationMessage to_message(const Instrumentation &instrumentation);
