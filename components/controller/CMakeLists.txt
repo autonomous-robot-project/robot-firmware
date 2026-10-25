@@ -1,5 +1,5 @@
 idf_component_register(SRCS "src/controller.cpp"
-                            "src/expiry_meter.cpp"
+                            "src/instrumentation/expiry_meter.cpp"
                        INCLUDE_DIRS "include"
                        PRIV_INCLUDE_DIRS "private_include"
                        PRIV_REQUIRES esp_timer)

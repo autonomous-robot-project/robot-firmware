@@ -2,10 +2,10 @@
 
 #include <optional>
 
-#include "command.h"
-#include "instrumentation.h"
+#include "interface/command.h"
+#include "instrumentation/instrumentation.h"
 #include "messages.h"
-#include "state.h"
+#include "interface/state.h"
 
 // Conversion between the messages of robot_interfaces and the types of the controller (ADR 018).
 

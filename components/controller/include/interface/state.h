@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "command.h"
+#include "interface/command.h"
 
 // Snapshot of the controller at the end of a control cycle (ADR 025).
 // Conditions are current state, not events: the sequencer detects the edges (ADR 037).

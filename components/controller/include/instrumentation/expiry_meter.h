@@ -3,7 +3,7 @@
 #include <chrono>
 #include <optional>
 
-#include "instrumentation.h"
+#include "instrumentation/instrumentation.h"
 
 // Measures the command expiry for V-06 (RNF-02), as part of the instrumentation (ADR 028):
 // the time from the reception of a command to the control cycle that expired it.
