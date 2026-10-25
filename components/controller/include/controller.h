@@ -47,7 +47,9 @@ class Controller
         // Task body: one control cycle every T_C. A FreeRTOS task must never return.
         [[noreturn]] void run();
 
-        void control_cycle();
+        // One cycle at its nominal release instant t_k (V-05). The expiry is decided and measured
+        // at t_k, so it happens within T_CMD + T_C of the reception (RNF-02).
+        void control_cycle(std::chrono::microseconds release);
 
         // The latest command, or TWIST(0, 0) if none arrived or it is older than T_CMD.
         [[nodiscard]] static Command command_in_force(

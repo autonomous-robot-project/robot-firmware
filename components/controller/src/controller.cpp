@@ -46,27 +46,32 @@ void Controller::task_entry(void *controller)
 
 void Controller::run()
 {
+    const TickType_t period = pdMS_TO_TICKS(T_C.count());
     TickType_t last_release = xTaskGetTickCount();
+    // Waits for the first release, so that t_0 is a release instant and the nominal release
+    // instants are t_k = t_0 + k * T_C (V-05).
+    vTaskDelayUntil(&last_release, period);
+    std::chrono::microseconds release = now();
     for (;;)
     {
-        control_cycle();
-        vTaskDelayUntil(&last_release, pdMS_TO_TICKS(T_C.count()));
+        control_cycle(release);
+        vTaskDelayUntil(&last_release, period);
+        release += T_C;
     }
 }
 
-void Controller::control_cycle()
+void Controller::control_cycle(std::chrono::microseconds release)
 {
-    const std::chrono::microseconds cycle = now();
     const std::optional<StampedCommand> latest = commands_.read();
 
     // Decided once per cycle: every step below uses this copy, already expired if too old.
-    const Command command = command_in_force(latest, cycle);
+    const Command command = command_in_force(latest, release);
 
     State state;
     state.echo = command;
     states_.write(state);
 
-    measure(latest, cycle);
+    measure(latest, release);
 }
 
 Command Controller::command_in_force(
