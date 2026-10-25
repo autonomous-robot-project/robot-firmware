@@ -1,0 +1,21 @@
+# C++ style of the firmware, close to the Python of robot-ros-system (Ruff): 4 spaces,
+# 99 columns, and a broken call puts one argument per line with ")" on its own line.
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 99
+BreakBeforeBraces: Allman
+IndentAccessModifiers: true
+NamespaceIndentation: All
+PointerAlignment: Right
+AlignAfterOpenBracket: BlockIndent
+BinPackArguments: false
+BinPackParameters: false
+AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortIfStatementsOnASingleLine: Never
+SpacesBeforeTrailingComments: 2
+IncludeBlocks: Preserve
+SortIncludes: Never
+# Prefer breaking inside the parentheses, as in Python, over breaking after "=" or after the
+# return type.
+PenaltyBreakAssignment: 1000
+PenaltyReturnTypeOnItsOwnLine: 1000

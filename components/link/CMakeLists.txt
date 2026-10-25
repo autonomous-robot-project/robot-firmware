@@ -1,4 +1,4 @@
-idf_component_register(SRCS "src/link.cpp" "src/transport.cpp"
+idf_component_register(SRCS "src/agent.cpp" "src/link.cpp" "src/session.cpp" "src/uart_transport.cpp"
                        INCLUDE_DIRS "include"
-                       PRIV_INCLUDE_DIRS "src"
+                       PRIV_INCLUDE_DIRS "private_include"
                        PRIV_REQUIRES driver micro_ros_espidf_component)
