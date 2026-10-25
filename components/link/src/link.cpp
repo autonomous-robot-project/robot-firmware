@@ -10,7 +10,12 @@
 
 static const char *TAG = "link";
 
-Link::Link() : transport_(UART_CONFIG)
+static TickType_t to_ticks(std::chrono::milliseconds duration)
+{
+    return pdMS_TO_TICKS(duration.count());
+}
+
+Link::Link(Controller &controller) : controller_(controller), transport_(UART_CONFIG)
 {
 }
 
@@ -35,14 +40,35 @@ void Link::run()
     {
         ESP_LOGI(TAG, "waiting for agent");
         agent.wait_until_alive();
-        const Session session;
+        Session session{controller_};
         if (!session.ok())
         {
-            vTaskDelay(pdMS_TO_TICKS(AGENT_RETRY_PERIOD.count()));
+            vTaskDelay(to_ticks(AGENT_RETRY_PERIOD));
             continue;
         }
         ESP_LOGI(TAG, "session up");
-        agent.wait_until_lost();
+        serve(session, agent);
         ESP_LOGW(TAG, "agent lost");
+    }
+}
+
+void Link::serve(Session &session, const Agent &agent)
+{
+    TickType_t last_release = xTaskGetTickCount();
+    TickType_t last_ping = last_release;
+    for (;;)
+    {
+        session.receive_commands();
+        session.publish_state();
+
+        if (xTaskGetTickCount() - last_ping >= to_ticks(AGENT_PING_PERIOD))
+        {
+            last_ping = xTaskGetTickCount();
+            if (!agent.is_alive())
+            {
+                return;
+            }
+        }
+        vTaskDelayUntil(&last_release, to_ticks(STATE_PERIOD));
     }
 }

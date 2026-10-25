@@ -5,6 +5,7 @@ IndentWidth: 4
 ColumnLimit: 99
 BreakBeforeBraces: Allman
 IndentAccessModifiers: true
+IndentCaseLabels: true
 NamespaceIndentation: All
 PointerAlignment: Right
 AlignAfterOpenBracket: BlockIndent

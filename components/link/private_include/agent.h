@@ -8,7 +8,4 @@ class Agent
 
         // Blocks the calling task until the agent answers.
         void wait_until_alive() const;
-
-        // Blocks the calling task while the agent answers, checking it periodically.
-        void wait_until_lost() const;
 };

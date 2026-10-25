@@ -25,12 +25,3 @@ void Agent::wait_until_alive() const
         vTaskDelay(to_ticks(AGENT_RETRY_PERIOD));
     }
 }
-
-void Agent::wait_until_lost() const
-{
-    TickType_t last_check = xTaskGetTickCount();
-    do
-    {
-        vTaskDelayUntil(&last_check, to_ticks(AGENT_PING_PERIOD));
-    } while (is_alive());
-}

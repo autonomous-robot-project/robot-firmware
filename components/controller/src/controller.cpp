@@ -51,8 +51,11 @@ void Controller::run()
 
 void Controller::control_cycle()
 {
+    // Read once per cycle: every step below uses this copy, already expired if too old.
+    const Command command = command_in_force(now());
+
     State state;
-    state.echo = command_in_force(now());
+    state.echo = command;
     states_.write(state);
 }
 
@@ -60,9 +63,14 @@ Command Controller::command_in_force(std::chrono::microseconds now) const
 {
     const std::optional<StampedCommand> latest = commands_.read();
     // An empty channel counts as an expired command (ADR 017).
-    if (!latest || now - latest->arrival > T_CMD)
+    if (!latest || latest->expired(now))
     {
         return Command::stop();
     }
     return latest->command;
+}
+
+bool Controller::StampedCommand::expired(std::chrono::microseconds now) const
+{
+    return now - arrival > T_CMD;
 }

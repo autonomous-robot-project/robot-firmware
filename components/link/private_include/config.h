@@ -28,4 +28,10 @@ constexpr std::chrono::milliseconds AGENT_PING_TIMEOUT{100};
 constexpr std::chrono::milliseconds AGENT_PING_PERIOD{1000};
 constexpr std::chrono::milliseconds AGENT_RETRY_PERIOD{500};
 
+// --- Topics (ADR 025) ---
 constexpr const char *NODE_NAME = "controller";
+constexpr const char *COMMAND_TOPIC = "/controller/command";
+constexpr const char *STATE_TOPIC = "/controller/state";
+
+// --- Exchange with the controller ---
+constexpr std::chrono::milliseconds STATE_PERIOD{10};  // 100 Hz = 1/T_C (ADR 025)

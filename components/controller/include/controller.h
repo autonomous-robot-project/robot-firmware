@@ -32,6 +32,9 @@ class Controller
             public:
                 Command command;
                 std::chrono::microseconds arrival;
+
+                // True if older than T_CMD (RNF-02).
+                [[nodiscard]] bool expired(std::chrono::microseconds now) const;
         };
 
         static void task_entry(void *controller);
