@@ -1,5 +1,6 @@
 #pragma once
 
+#include <freertos/FreeRTOS.h>
 #include <rcl/rcl.h>
 #include <rclc/executor.h>
 #include <rclc/rclc.h>
@@ -23,8 +24,8 @@ class Session
         // False if any entity could not be created.
         [[nodiscard]] bool ok() const { return ready_; }
 
-        // Hands the commands received since the last call to the controller. Never blocks.
-        void receive_commands();
+        // Waits for commands until the deadline, handing each one to the controller as it arrives.
+        void receive_commands_until(TickType_t deadline);
 
         // Publishes the latest state of the controller, if there is one yet.
         void publish_state();

@@ -15,6 +15,15 @@ static TickType_t to_ticks(std::chrono::milliseconds duration)
     return pdMS_TO_TICKS(duration.count());
 }
 
+// The deadline after `deadline`, one period later; if the task fell behind (a ping takes up to
+// its timeout), the next one is a period from now, so late publications do not come in a burst.
+static TickType_t next_deadline(TickType_t deadline, TickType_t period)
+{
+    const TickType_t now = xTaskGetTickCount();
+    const bool behind = static_cast<int32_t>(now - deadline) >= static_cast<int32_t>(period);
+    return (behind ? now : deadline) + period;
+}
+
 Link::Link(Controller &controller) : controller_(controller), transport_(UART_CONFIG)
 {
 }
@@ -54,12 +63,16 @@ void Link::run()
 
 void Link::serve(Session &session, const Agent &agent)
 {
-    TickType_t last_release = xTaskGetTickCount();
-    TickType_t last_ping = last_release;
+    const TickType_t state_period = to_ticks(STATE_PERIOD);
+    TickType_t next_publication = xTaskGetTickCount() + state_period;
+    TickType_t last_ping = xTaskGetTickCount();
     for (;;)
     {
-        session.receive_commands();
+        // Each command reaches the controller as soon as it arrives, so the controller stamps
+        // its reception time (ADR 017, RNF-02); the state goes out every STATE_PERIOD.
+        session.receive_commands_until(next_publication);
         session.publish_state();
+        next_publication = next_deadline(next_publication, state_period);
 
         if (xTaskGetTickCount() - last_ping >= to_ticks(AGENT_PING_PERIOD))
         {
@@ -69,6 +82,5 @@ void Link::serve(Session &session, const Agent &agent)
                 return;
             }
         }
-        vTaskDelayUntil(&last_release, to_ticks(STATE_PERIOD));
     }
 }

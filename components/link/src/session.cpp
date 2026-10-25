@@ -58,14 +58,23 @@ Session::~Session()
     destroy_support();
 }
 
-void Session::receive_commands()
+void Session::receive_commands_until(TickType_t deadline)
 {
-    constexpr uint64_t no_wait_ns = 0;
-    const rcl_ret_t ret = rclc_executor_spin_some(&executor_, no_wait_ns);
-    // RCL_RET_TIMEOUT only means that no command arrived.
-    if (ret != RCL_RET_OK && ret != RCL_RET_TIMEOUT)
+    for (;;)
     {
-        ESP_LOGD(TAG, "spin failed: %d", static_cast<int>(ret));
+        const auto remaining = static_cast<int32_t>(deadline - xTaskGetTickCount());
+        if (remaining <= 0)
+        {
+            return;
+        }
+        // Returns early when a command arrives, after its callback has run.
+        const uint64_t timeout_ns = static_cast<uint64_t>(pdTICKS_TO_MS(remaining)) * 1000000;
+        const rcl_ret_t ret = rclc_executor_spin_some(&executor_, timeout_ns);
+        // RCL_RET_TIMEOUT only means that no command arrived.
+        if (ret != RCL_RET_OK && ret != RCL_RET_TIMEOUT)
+        {
+            ESP_LOGD(TAG, "spin failed: %d", static_cast<int>(ret));
+        }
     }
 }
 
@@ -77,7 +86,7 @@ void Session::publish_state()
         return;
     }
     state_message_ = to_message(*state);
-    // Best effort: a lost state is superseded by the next one, 10 ms later.
+    // Best effort: a lost state is superseded by the next one, a STATE_PERIOD later.
     const rcl_ret_t ret = rcl_publish(&state_publisher_, &state_message_, nullptr);
     if (ret != RCL_RET_OK)
     {
