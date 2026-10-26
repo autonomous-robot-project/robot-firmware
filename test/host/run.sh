@@ -7,5 +7,6 @@ BUILD=$(mktemp -d)
 g++ -std=c++20 -Wall -Wextra -Werror \
     -I "$CONTROLLER/include" -I "$CONTROLLER/private_include" \
     test_wheel_pi.cpp "$CONTROLLER/src/control/wheel_pi.cpp" \
+    "$CONTROLLER/src/sensing/wheel_speed.cpp" \
     -o "$BUILD/test_wheel_pi"
 "$BUILD/test_wheel_pi"

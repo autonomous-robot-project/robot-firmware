@@ -1,28 +1,71 @@
-// Unit test of WheelPI on the host, with synthetic data. The conditional integration (ADR 023)
-// must keep the integral term within DUTY_MAX plus one integration step, whatever the reference
-// and the wheel do; below v_min the PI brakes and resets the integral (ADR 030).
+// Unit test of WheelPI on the host, with synthetic data from a model of the motor and of the
+// encoder. The conditional integration (ADR 023) must keep the integral term within DUTY_MAX plus
+// one integration step, whatever the reference and the wheel do; the discrete design must settle
+// within t_s; the loop must hold the speed down to v_min; below it the PI brakes and resets the
+// integral (ADR 030). The motor constants are provisional, so these numbers are too.
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <optional>
+#include <utility>
 
 #include "control/wheel_pi.h"
 #include "control_config.h"
+#include "sensing/wheel_speed.h"
 
-// First-order model of the motor, the one the gains are designed for.
+// The motor as the gains are designed for: the exact step of the first-order plant over one
+// control cycle, with the duty held (zero-order hold).
 class MotorModel
 {
     public:
         [[nodiscard]] float speed() const { return speed_; }
 
-        void apply(float duty)
-        {
-            const float steady_speed = MOTOR_GAIN * duty;
-            speed_ += (steady_speed - speed_) * T_C_SECONDS / MOTOR_TIME_CONSTANT;
-        }
+        void apply(float duty) { speed_ = MOTOR_POLE * speed_ + MOTOR_STEP_GAIN * duty; }
 
     private:
         float speed_ = 0.0f;
+};
+
+// Single-channel encoder on the motor model: one edge every WHEEL_TRAVEL_PER_EDGE of travel, at
+// the instant interpolated within the cycle, as the interrupt would stamp it.
+class EncoderModel
+{
+    public:
+        void advance(float start_speed, float end_speed, std::chrono::microseconds cycle_start)
+        {
+            const float mean_speed = std::abs(start_speed + end_speed) / 2.0f;
+            float travel_left = mean_speed * T_C_SECONDS;
+            float elapsed = 0.0f;
+            while (travel_left >= WHEEL_TRAVEL_PER_EDGE - travel_since_edge_)
+            {
+                const float to_edge = WHEEL_TRAVEL_PER_EDGE - travel_since_edge_;
+                elapsed += to_edge / mean_speed;
+                travel_left -= to_edge;
+                travel_since_edge_ = 0.0f;
+                record_edge(
+                    cycle_start + std::chrono::microseconds{static_cast<int64_t>(elapsed * 1e6f)}
+                );
+            }
+            travel_since_edge_ += travel_left;
+        }
+
+        [[nodiscard]] std::optional<EncoderEdges> edges() const { return edges_; }
+
+    private:
+        void record_edge(std::chrono::microseconds instant)
+        {
+            EncoderEdges next = edges_.value_or(EncoderEdges{});
+            next.previous = next.last;
+            next.last = instant;
+            next.count++;
+            edges_ = next;
+        }
+
+        float travel_since_edge_ = 0.0f;
+        std::optional<EncoderEdges> edges_;
 };
 
 static int failures = 0;
@@ -111,18 +154,16 @@ static float settling_time(float start, float reference)
     return static_cast<float>(last_cycle_outside_band + 1) * T_C_SECONDS;
 }
 
-// The gains promise a first-order response that settles (2 %) in WHEEL_SETTLING_TIME. The
-// discrete loop acts on the speed of the previous cycle, so a few cycles more are accepted.
+// The discrete design promises a response that settles (2 %) within WHEEL_SETTLING_TIME.
 static void check_settling_time(float start, float reference, const char *description)
 {
-    constexpr float discrete_loop_margin = 1.1f;
     const float measured = settling_time(start, reference);
     std::printf(
         "      settling time %.0f ms (design %.0f ms)\n",
         measured * 1e3f,
         WHEEL_SETTLING_TIME * 1e3f
     );
-    check(measured <= discrete_loop_margin * WHEEL_SETTLING_TIME, description);
+    check(measured <= WHEEL_SETTLING_TIME, description);
 }
 
 static void test_settling_time()
@@ -144,11 +185,58 @@ static void test_reference_below_v_min()
     check(pi.integral() == 0.0f, "reference below v_min: the integral is reset");
 }
 
+// The loop measured through the encoder model, as on the robot, at `reference` for 5 s. Returns
+// the slowest and the fastest speed of the last 2 s.
+static std::pair<float, float> speed_range_with_encoder(float reference)
+{
+    WheelPI pi;
+    MotorModel motor;
+    EncoderModel encoder;
+    WheelSpeed speed_estimate;
+    float applied_duty = 0.0f;
+    float slowest = reference;
+    float fastest = reference;
+
+    constexpr int five_seconds = 500;
+    constexpr int last_two_seconds = 300;
+    for (int cycle = 0; cycle < five_seconds; cycle++)
+    {
+        const std::chrono::microseconds now = cycle * std::chrono::microseconds{T_C};
+        const float measured = speed_estimate.update(encoder.edges(), now, applied_duty);
+        applied_duty = pi.update(reference, measured);
+
+        const float start_speed = motor.speed();
+        motor.apply(applied_duty);
+        encoder.advance(start_speed, motor.speed(), now);
+
+        if (cycle >= last_two_seconds)
+        {
+            slowest = std::min(slowest, motor.speed());
+            fastest = std::max(fastest, motor.speed());
+        }
+    }
+    return {slowest, fastest};
+}
+
+// At v_min the edges are the sparsest the loop must handle; it must still hold the speed.
+static void test_lowest_speed_with_encoder()
+{
+    const auto [slowest, fastest] = speed_range_with_encoder(V_MIN);
+    std::printf("      at v_min = %.3f m/s: speed %.4f..%.4f m/s\n", V_MIN, slowest, fastest);
+
+    const float tolerance = 0.02f * V_MIN;
+    check(
+        fastest - V_MIN <= tolerance && V_MIN - slowest <= tolerance,
+        "encoder at v_min: the speed holds within 2 %"
+    );
+}
+
 int main()
 {
     test_stalled_wheel();
     test_unreachable_reference();
     test_settling_time();
+    test_lowest_speed_with_encoder();
     test_reference_below_v_min();
     std::printf("%s\n", failures == 0 ? "all passed" : "FAILED");
     return failures == 0 ? 0 : 1;
