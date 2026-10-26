@@ -6,6 +6,7 @@
 #include <freertos/task.h>
 
 #include "config.h"
+#include "control/inverse_kinematics.h"
 
 static std::chrono::microseconds now()
 {
@@ -23,14 +24,17 @@ void Controller::start()
     watchdog_.start();
     restarted_by_watchdog_ = TaskWatchdog::caused_last_restart();
     watchdog_test_trigger_.start();
+
     // One interrupt service for all GPIO interrupts, on the calling core (core 0).
     constexpr int default_flags = 0;
     const esp_err_t installed = gpio_install_isr_service(default_flags);
     ESP_ERROR_CHECK(installed);
     left_encoder_.start();
     right_encoder_.start();
+
     left_motor_.start();
     right_motor_.start();
+
     const BaseType_t created = xTaskCreatePinnedToCore(
         &Controller::task_entry,
         "control",
@@ -85,33 +89,66 @@ void Controller::control_cycle(std::chrono::microseconds release)
     watchdog_test_trigger_.hang_if_requested();
 
     const std::optional<StampedCommand> latest = commands_.read();
-
     // Decided once per cycle: every step below uses this copy, already expired if too old.
     const Command command = command_in_force(latest, release);
 
-    // Until the PI exists, the only reference is the stop: both wheels brake, so the duty applied
-    // in the previous cycle is also the brake.
-    constexpr float brake = 0.0f;
-    const WheelSpeeds wheel_speeds = {
-        .left = left_speed_.update(left_encoder_.latest_edges(), release, brake),
-        .right = right_speed_.update(right_encoder_.latest_edges(), release, brake),
+    const WheelPair measured = measure_wheel_speeds(release);
+    const WheelPair references = wheel_references(command);
+    drive_wheels(references, measured);
+
+    publish_state(command, release);
+    record_instrumentation(latest, release, measured);
+
+    watchdog_.feed();
+}
+
+WheelPair Controller::measure_wheel_speeds(std::chrono::microseconds now)
+{
+    return {
+        .left = left_speed_.update(left_encoder_.latest_edges(), now, applied_duty_.left),
+        .right = right_speed_.update(right_encoder_.latest_edges(), now, applied_duty_.right),
+    };
+}
+
+WheelPair Controller::wheel_references(const Command &command)
+{
+    return inverse_kinematics(target_twist(command));
+}
+
+void Controller::drive_wheels(const WheelPair &references, const WheelPair &measured)
+{
+    const WheelPair duty = {
+        .left = left_pi_.update(references.left, measured.left),
+        .right = right_pi_.update(references.right, measured.right),
     };
 
-    left_motor_.apply(brake);
-    right_motor_.apply(brake);
+    left_motor_.apply(duty.left);
+    right_motor_.apply(duty.right);
+    applied_duty_ = duty;
+}
 
+void Controller::publish_state(const Command &command, std::chrono::microseconds now)
+{
     State state;
-    state.faults = active_faults(release);
+    state.faults = active_faults(now);
     state.echo = command;
     states_.write(state);
+}
 
-    measure(latest, release, wheel_speeds);
-    watchdog_.feed();
+Twist Controller::target_twist(const Command &command)
+{
+    if (command.behavior != Behavior::TWIST)
+    {
+        return Twist{};
+    }
+
+    return {.linear = command.linear, .angular = command.angular};
 }
 
 uint32_t Controller::active_faults(std::chrono::microseconds now) const
 {
     uint32_t faults = 0;
+
     // `now` counts from the boot. The code stays active long enough for the sequencer to see it,
     // even after a slow reconnection of the session (ADR 029).
     const bool watchdog_restart_recent = restarted_by_watchdog_ && now < WATCHDOG_FAULT_DURATION;
@@ -119,6 +156,7 @@ uint32_t Controller::active_faults(std::chrono::microseconds now) const
     {
         faults |= State::FAULT_WATCHDOG_RESTART;
     }
+
     return faults;
 }
 
@@ -131,6 +169,7 @@ Command Controller::command_in_force(
     {
         return Command::stop();
     }
+
     return latest->command;
 }
 
@@ -139,16 +178,17 @@ bool Controller::StampedCommand::expired(std::chrono::microseconds now) const
     return now - arrival > T_CMD;
 }
 
-void Controller::measure(
+void Controller::record_instrumentation(
     const std::optional<StampedCommand> &latest,
     std::chrono::microseconds cycle,
-    const WheelSpeeds &wheel_speeds
+    const WheelPair &wheel_speeds
 )
 {
     if (latest && latest->expired(cycle))
     {
         expiry_meter_.record(latest->arrival, cycle);
     }
+
     Instrumentation instrumentation = expiry_meter_.measurements();
     instrumentation.left_wheel_speed = wheel_speeds.left;
     instrumentation.right_wheel_speed = wheel_speeds.right;

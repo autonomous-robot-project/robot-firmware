@@ -25,6 +25,7 @@ void WatchdogTestTrigger::hang_if_requested() const
     {
         return;
     }
+
     // The injected defect: a cycle that never ends. The read of a volatile is what keeps the
     // loop, because an endless loop without side effects is undefined behaviour in C++.
     volatile bool hung = true;

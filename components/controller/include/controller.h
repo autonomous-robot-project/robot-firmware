@@ -7,6 +7,9 @@
 #include "instrumentation/expiry_meter.h"
 #include "instrumentation/instrumentation.h"
 #include "channels/latest_value_channel.h"
+#include "control/twist.h"
+#include "control/wheel_pair.h"
+#include "control/wheel_pi.h"
 #include "actuation/motor_driver.h"
 #include "interface/state.h"
 #include "sensing/wheel_encoder.h"
@@ -38,14 +41,6 @@ class Controller
         [[nodiscard]] std::optional<Instrumentation> latest_instrumentation() const;
 
     private:
-        // Measured speed of each wheel in one cycle, in m/s (V-02).
-        struct WheelSpeeds
-        {
-            public:
-                float left = 0.0f;
-                float right = 0.0f;
-        };
-
         struct StampedCommand
         {
             public:
@@ -70,14 +65,29 @@ class Controller
             const std::optional<StampedCommand> &latest, std::chrono::microseconds now
         );
 
+        // The twist that the active behaviour asks for. Only TWIST exists in this slice; TURN_TO
+        // and GO_TO come with V-01 and stop the robot until then.
+        [[nodiscard]] static Twist target_twist(const Command &command);
+
         // Faults active at `now`, one bit per code (State::FAULT_*).
         [[nodiscard]] uint32_t active_faults(std::chrono::microseconds now) const;
 
+        // Speed of each wheel from its encoder, with the direction of the previous duty (ADR 019).
+        [[nodiscard]] WheelPair measure_wheel_speeds(std::chrono::microseconds now);
+
+        // Speed of each wheel that the active behaviour asks for.
+        [[nodiscard]] WheelPair wheel_references(const Command &command);
+
+        // PI of each wheel and the PWM of its motor.
+        void drive_wheels(const WheelPair &references, const WheelPair &measured);
+
+        void publish_state(const Command &command, std::chrono::microseconds now);
+
         // Measurements of the cycle for the verifications (ADR 028); never read by the control.
-        void measure(
+        void record_instrumentation(
             const std::optional<StampedCommand> &latest,
             std::chrono::microseconds cycle,
-            const WheelSpeeds &wheel_speeds
+            const WheelPair &wheel_speeds
         );
 
         LatestValueChannel<StampedCommand> commands_;
@@ -90,6 +100,10 @@ class Controller
         WheelEncoder right_encoder_;
         WheelSpeed left_speed_;
         WheelSpeed right_speed_;
+        WheelPI left_pi_;
+        WheelPI right_pi_;
+        WheelPair
+            applied_duty_;  // of the previous cycle: the direction of a stopped wheel (ADR 019)
         TaskWatchdog watchdog_;
         WatchdogTestTrigger watchdog_test_trigger_;
         bool restarted_by_watchdog_ = false;

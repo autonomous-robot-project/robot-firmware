@@ -60,6 +60,8 @@ static void wait_for_start()
     ESP_ERROR_CHECK(installed);
     esp_vfs_usb_serial_jtag_use_driver();
     std::printf("# motor_characterization: wheels suspended? send a line to start\n");
+    std::printf("# Each step ends in the full brake: watch the first ones, at low speed,\n");
+    std::printf("# and cut the motor supply if the gearbox shows trouble (ADR 023).\n");
     char received = 0;
     while (received != '\n')
     {

@@ -16,6 +16,7 @@ void WheelEncoder::start()
     };
     const esp_err_t configured = gpio_config(&config);
     ESP_ERROR_CHECK(configured);
+
     const esp_err_t added = gpio_isr_handler_add(pin_, &WheelEncoder::on_rising_edge, this);
     ESP_ERROR_CHECK(added);
 }
@@ -33,8 +34,10 @@ void WheelEncoder::record_edge(std::chrono::microseconds now)
     {
         return;
     }
+
     recorded_.previous = recorded_.last;
     recorded_.last = now;
     recorded_.count++;
+
     edges_.write_from_isr(recorded_);
 }

@@ -23,6 +23,7 @@ void MotorDriver::start()
     };
     const esp_err_t configured = ledc_timer_config(&config);
     ESP_ERROR_CHECK(configured);
+
     in1_.start(timer_);
     in2_.start(timer_);
 }
@@ -30,6 +31,7 @@ void MotorDriver::start()
 void MotorDriver::apply(float duty)
 {
     const float drive = std::clamp(duty, -DUTY_MAX, DUTY_MAX);
+
     const bool forward = drive >= 0.0f;
     if (forward)
     {

@@ -9,12 +9,14 @@ float WheelSpeed::update(
 )
 {
     const float speed = magnitude(edges, now);
+
     const bool stopped = speed == 0.0f;
     const bool driven = applied_duty != 0.0f;
     if (stopped && driven)
     {
         direction_ = applied_duty > 0.0f ? 1.0f : -1.0f;
     }
+
     return direction_ * speed;
 }
 
@@ -27,6 +29,7 @@ float WheelSpeed::magnitude(
     {
         return 0.0f;
     }
+
     const auto since_last_edge = now - edges->last;
     const auto last_interval = edges->last - edges->previous;
     const auto bound = std::max(last_interval, since_last_edge);
@@ -34,5 +37,6 @@ float WheelSpeed::magnitude(
     {
         return 0.0f;
     }
+
     return WHEEL_TRAVEL_PER_EDGE / std::chrono::duration<float>(bound).count();
 }

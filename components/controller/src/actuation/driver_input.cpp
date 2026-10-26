@@ -41,6 +41,7 @@ void DriverInput::set_high_fraction(float fraction)
 
     const esp_err_t set = ledc_set_duty(PWM_SPEED_MODE, wiring_.channel, duty);
     ESP_ERROR_CHECK(set);
+
     // The new duty starts with the next PWM period, so the output never glitches.
     const esp_err_t updated = ledc_update_duty(PWM_SPEED_MODE, wiring_.channel);
     ESP_ERROR_CHECK(updated);

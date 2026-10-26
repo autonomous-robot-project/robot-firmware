@@ -5,12 +5,14 @@ Records the CSV that the motor_characterization app prints on the USB console an
 each wheel:
 - the duty at which the wheel starts and stops on the slow ramp;
 - for each duty step, the steady speed and the time constant tau of a first-order response;
+- for the brake after each step, the braking time constant (TWIST(0, 0) is the full brake);
 - the line speed = gain * (|duty| - dead zone) fitted to the steps.
 
 Each step is read from the travelled distance (the edges times s), not from s / dt: after a
 step, the distance of a first-order response tends to the line v * (t - tau), so the slope of the
 line fitted to the end of the step is the steady speed and its time intercept is tau. The speed
-samples only exist at the edges and would delay the 63 % instant.
+samples only exist at the edges and would delay the 63 % instant. Likewise, a first-order stop
+from the speed v covers v * tau_brake, so tau_brake is the distance after the step over v.
 
 Usage, on the RPi with the app flashed:
     python3 characterize.py record <usb port> <file.csv>   # sends the start line, then analyzes
@@ -27,6 +29,7 @@ WHEEL_TRAVEL_PER_EDGE = math.pi * 0.065 / 20  # s (m): D = 65 mm, N = 20 (V-02)
 RECORD_TIMEOUT_S = 150.0
 MIN_STEP_S = 1.0  # a constant non-zero duty at least this long is a step
 STEADY_WINDOW_S = 1.0  # the end of the step where the response is steady
+BRAKE_WINDOW_S = 1.9  # after the step, within the 2 s of brake of the app
 MIN_FIT_EDGES = 3
 WHEELS = ('L', 'R')
 
@@ -100,6 +103,7 @@ class StepResponse:
     duty: float
     steady_speed: float  # m/s; 0 if too few edges at the end of the step
     time_constant: float  # s; nan if too few edges
+    braking_time_constant: float  # s; nan if too few edges
 
     @classmethod
     def of(cls, step, edges):
@@ -111,10 +115,22 @@ class StepResponse:
             if time > step.end - STEADY_WINDOW_S
         ]
         if len(steady) < MIN_FIT_EDGES:
-            return cls(step.duty, 0.0, math.nan)
+            return cls(step.duty, 0.0, math.nan, math.nan)
+
         line = Line.fit([time for time, _ in steady], [distance for _, distance in steady])
         time_at_zero_distance = -line.intercept / line.slope
-        return cls(step.duty, line.slope, time_at_zero_distance - step.start)
+
+        edges_while_braking = [
+            edge for edge in edges if step.end < edge <= step.end + BRAKE_WINDOW_S
+        ]
+        braking_distance = len(edges_while_braking) * WHEEL_TRAVEL_PER_EDGE
+
+        return cls(
+            duty=step.duty,
+            steady_speed=line.slope,
+            time_constant=time_at_zero_distance - step.start,
+            braking_time_constant=braking_distance / line.slope,
+        )
 
     @staticmethod
     def _distances(edge_count):
@@ -162,11 +178,12 @@ class Report:
                 f'stops at duty {dead_zone.stop_duty:.3f}'
             )
             responses = [StepResponse.of(step, edges) for step in steps]
-            print('   duty  speed (m/s)  tau (ms)')
+            print('   duty  speed (m/s)  tau (ms)  tau_brake (ms)')
             for response in responses:
                 print(
                     f'  {response.duty:+.2f}  {response.steady_speed:11.3f}  '
-                    f'{response.time_constant * 1e3:8.0f}'
+                    f'{response.time_constant * 1e3:8.0f}  '
+                    f'{response.braking_time_constant * 1e3:14.0f}'
                 )
             static_map = StaticMap(responses)
             print(
