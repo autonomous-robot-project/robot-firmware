@@ -7,6 +7,7 @@
 #include "instrumentation/expiry_meter.h"
 #include "instrumentation/instrumentation.h"
 #include "channels/latest_value_channel.h"
+#include "control/acceleration_limiter.h"
 #include "control/twist.h"
 #include "control/wheel_pair.h"
 #include "control/wheel_pi.h"
@@ -75,7 +76,8 @@ class Controller
         // Speed of each wheel from its encoder, with the direction of the previous duty (ADR 019).
         [[nodiscard]] WheelPair measure_wheel_speeds(std::chrono::microseconds now);
 
-        // Speed of each wheel that the active behaviour asks for.
+        // Speed of each wheel that the active behaviour asks for, after the acceleration limits
+        // (ADR 023).
         [[nodiscard]] WheelPair wheel_references(const Command &command);
 
         // PI of each wheel and the PWM of its motor.
@@ -100,6 +102,7 @@ class Controller
         WheelEncoder right_encoder_;
         WheelSpeed left_speed_;
         WheelSpeed right_speed_;
+        AccelerationLimiter acceleration_limiter_;
         WheelPI left_pi_;
         WheelPI right_pi_;
         WheelPair

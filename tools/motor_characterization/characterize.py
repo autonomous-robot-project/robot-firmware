@@ -5,7 +5,7 @@ Records the CSV that the motor_characterization app prints on the USB console an
 each wheel:
 - the duty at which the wheel starts and stops on the slow ramp;
 - for each duty step, the steady speed and the time constant tau of a first-order response;
-- for the brake after each step, the braking time constant (TWIST(0, 0) is the full brake);
+- for the full brake after each step, the braking time constant, which bounds A_DEC (ADR 023);
 - the line speed = gain * (|duty| - dead zone) fitted to the steps.
 
 Each step is read from the travelled distance (the edges times s), not from s / dt: after a

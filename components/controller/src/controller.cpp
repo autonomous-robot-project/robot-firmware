@@ -112,7 +112,10 @@ WheelPair Controller::measure_wheel_speeds(std::chrono::microseconds now)
 
 WheelPair Controller::wheel_references(const Command &command)
 {
-    return inverse_kinematics(target_twist(command));
+    const Twist target = target_twist(command);
+    const Twist reference = acceleration_limiter_.limit(target);
+
+    return inverse_kinematics(reference);
 }
 
 void Controller::drive_wheels(const WheelPair &references, const WheelPair &measured)

@@ -43,7 +43,9 @@ constexpr float WHEEL_TRAVEL_PER_EDGE = std::numbers::pi_v<float> * WHEEL_DIAMET
 // Shorter than s / v_max with margin: v_max = 0.5 m/s gives 20 ms (V-02, step 9).
 constexpr std::chrono::milliseconds ENCODER_MIN_EDGE_INTERVAL{15};
 
-// --- Inverse kinematics ---
+// --- Reference: acceleration limits (ADR 023) and inverse kinematics; provisional values ---
+constexpr float A_ACCEL = 0.25f;  // m/s², limited by the current and the gearbox (robot-docs#27)
+constexpr float A_DEC = 0.5f;     // m/s², limited by slip; steeper than A_ACCEL (robot-docs#27)
 constexpr float TRACK_WIDTH = 0.15f;  // b (m), between the wheels; provisional (robot-docs#25)
 
 // --- Wheel PI: gains from the motor model and the settling time ---
