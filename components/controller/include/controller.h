@@ -16,6 +16,7 @@
 #include "sensing/wheel_encoder.h"
 #include "sensing/wheel_speed.h"
 #include "supervision/watchdog_test_trigger.h"
+#include "supervision/wheel_tracking_monitor.h"
 #include "supervision/task_watchdog.h"
 
 // Controller layer (ADR 018): the real-time control task on core 1 and its latest-value channels.
@@ -71,7 +72,9 @@ class Controller
         [[nodiscard]] static Twist target_twist(const Command &command);
 
         // Faults active at `now`, one bit per code (State::FAULT_*).
-        [[nodiscard]] uint32_t active_faults(std::chrono::microseconds now) const;
+        [[nodiscard]] uint32_t active_faults(
+            std::chrono::microseconds now, bool tracking_lost
+        ) const;
 
         // Speed of each wheel from its encoder, with the direction of the previous duty (ADR 019).
         [[nodiscard]] WheelPair measure_wheel_speeds(std::chrono::microseconds now);
@@ -83,7 +86,12 @@ class Controller
         // PI of each wheel and the PWM of its motor.
         void drive_wheels(const WheelPair &references, const WheelPair &measured);
 
-        void publish_state(const Command &command, std::chrono::microseconds now);
+        // True if either wheel has lost the tracking of its reference (RF-02).
+        [[nodiscard]] bool tracking_lost(
+            const WheelPair &references, const WheelPair &measured, std::chrono::microseconds now
+        );
+
+        void publish_state(const Command &command, uint32_t faults);
 
         // Measurements of the cycle for the verifications (ADR 028); never read by the control.
         void record_instrumentation(
@@ -105,8 +113,10 @@ class Controller
         AccelerationLimiter acceleration_limiter_;
         WheelPI left_pi_;
         WheelPI right_pi_;
-        WheelPair
-            applied_duty_;  // of the previous cycle: the direction of a stopped wheel (ADR 019)
+        WheelTrackingMonitor left_tracking_;
+        WheelTrackingMonitor right_tracking_;
+        // Duty of the previous cycle: the direction of a stopped wheel (ADR 019).
+        WheelPair applied_duty_;
         TaskWatchdog watchdog_;
         WatchdogTestTrigger watchdog_test_trigger_;
         bool restarted_by_watchdog_ = false;

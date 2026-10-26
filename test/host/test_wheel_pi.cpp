@@ -5,79 +5,14 @@
 // integral (ADR 030). The motor constants are provisional, so these numbers are too.
 
 #include <algorithm>
-#include <chrono>
 #include <cmath>
-#include <cstdint>
 #include <cstdio>
-#include <optional>
 #include <utility>
 
+#include "check.h"
 #include "control/wheel_pi.h"
 #include "control_config.h"
-#include "sensing/wheel_speed.h"
-
-// The motor as the gains are designed for: the exact step of the first-order plant over one
-// control cycle, with the duty held (zero-order hold).
-class MotorModel
-{
-    public:
-        [[nodiscard]] float speed() const { return speed_; }
-
-        void apply(float duty) { speed_ = MOTOR_POLE * speed_ + MOTOR_STEP_GAIN * duty; }
-
-    private:
-        float speed_ = 0.0f;
-};
-
-// Single-channel encoder on the motor model: one edge every WHEEL_TRAVEL_PER_EDGE of travel, at
-// the instant interpolated within the cycle, as the interrupt would stamp it.
-class EncoderModel
-{
-    public:
-        void advance(float start_speed, float end_speed, std::chrono::microseconds cycle_start)
-        {
-            const float mean_speed = std::abs(start_speed + end_speed) / 2.0f;
-            float travel_left = mean_speed * T_C_SECONDS;
-            float elapsed = 0.0f;
-            while (travel_left >= WHEEL_TRAVEL_PER_EDGE - travel_since_edge_)
-            {
-                const float to_edge = WHEEL_TRAVEL_PER_EDGE - travel_since_edge_;
-                elapsed += to_edge / mean_speed;
-                travel_left -= to_edge;
-                travel_since_edge_ = 0.0f;
-                record_edge(
-                    cycle_start + std::chrono::microseconds{static_cast<int64_t>(elapsed * 1e6f)}
-                );
-            }
-            travel_since_edge_ += travel_left;
-        }
-
-        [[nodiscard]] std::optional<EncoderEdges> edges() const { return edges_; }
-
-    private:
-        void record_edge(std::chrono::microseconds instant)
-        {
-            EncoderEdges next = edges_.value_or(EncoderEdges{});
-            next.previous = next.last;
-            next.last = instant;
-            next.count++;
-            edges_ = next;
-        }
-
-        float travel_since_edge_ = 0.0f;
-        std::optional<EncoderEdges> edges_;
-};
-
-static int failures = 0;
-
-static void check(bool condition, const char *description)
-{
-    std::printf("%s: %s\n", condition ? "PASS" : "FAIL", description);
-    if (!condition)
-    {
-        failures++;
-    }
-}
+#include "wheel_model.h"
 
 // Largest integral term that the conditional integration allows for errors up to `max_error`.
 static float integral_bound(float max_error)
@@ -189,11 +124,7 @@ static void test_reference_below_v_min()
 // the slowest and the fastest speed of the last 2 s.
 static std::pair<float, float> speed_range_with_encoder(float reference)
 {
-    WheelPI pi;
-    MotorModel motor;
-    EncoderModel encoder;
-    WheelSpeed speed_estimate;
-    float applied_duty = 0.0f;
+    ClosedLoopWheel wheel;
     float slowest = reference;
     float fastest = reference;
 
@@ -201,18 +132,11 @@ static std::pair<float, float> speed_range_with_encoder(float reference)
     constexpr int last_two_seconds = 300;
     for (int cycle = 0; cycle < five_seconds; cycle++)
     {
-        const std::chrono::microseconds now = cycle * std::chrono::microseconds{T_C};
-        const float measured = speed_estimate.update(encoder.edges(), now, applied_duty);
-        applied_duty = pi.update(reference, measured);
-
-        const float start_speed = motor.speed();
-        motor.apply(applied_duty);
-        encoder.advance(start_speed, motor.speed(), now);
-
+        wheel.step(reference, cycle_instant(cycle));
         if (cycle >= last_two_seconds)
         {
-            slowest = std::min(slowest, motor.speed());
-            fastest = std::max(fastest, motor.speed());
+            slowest = std::min(slowest, wheel.true_speed());
+            fastest = std::max(fastest, wheel.true_speed());
         }
     }
     return {slowest, fastest};
@@ -238,6 +162,5 @@ int main()
     test_settling_time();
     test_lowest_speed_with_encoder();
     test_reference_below_v_min();
-    std::printf("%s\n", failures == 0 ? "all passed" : "FAILED");
-    return failures == 0 ? 0 : 1;
+    return verdict();
 }

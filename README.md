@@ -20,4 +20,4 @@ The brake after each step is the full brake, which stresses the motor and the ge
 
 ## Unit tests on the host
 
-`test/host/run.sh` builds and runs, with plain `g++` and no ESP-IDF, the unit tests of the control classes that use only `control_config.h`. Today: `WheelPI` with `WheelSpeed`, against the discrete model of the motor and a model of the encoder (integral bounded with the wheel stalled or the reference out of reach, settling time within t_s, speed held at v_min through the encoder, brake below v_min).
+`test/host/run.sh` builds and runs, with plain `g++` and no ESP-IDF, the unit tests of the control classes that use only `control_config.h`. The models of the motor, of the encoder and of the closed loop of one wheel are in `test/host/wheel_model.h`. Today: `WheelPI` (integral bounded with the wheel stalled or the reference out of reach, settling time within t_s, speed held at v_min through the encoder, brake below v_min) and `WheelTrackingMonitor` (the V-02 trial: no failure at start, stall reported within t* + T_f, cleared after the release, nothing judged below v_min).

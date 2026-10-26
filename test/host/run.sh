@@ -4,9 +4,20 @@ set -e
 cd "$(dirname "$0")"
 CONTROLLER=../../components/controller
 BUILD=$(mktemp -d)
-g++ -std=c++20 -Wall -Wextra -Werror \
-    -I "$CONTROLLER/include" -I "$CONTROLLER/private_include" \
-    test_wheel_pi.cpp "$CONTROLLER/src/control/wheel_pi.cpp" \
-    "$CONTROLLER/src/sensing/wheel_speed.cpp" \
-    -o "$BUILD/test_wheel_pi"
+build() {
+    g++ -std=c++20 -Wall -Wextra -Werror \
+        -I "$CONTROLLER/include" -I "$CONTROLLER/private_include" \
+        "$@"
+}
+MODEL="$CONTROLLER/src/control/wheel_pi.cpp $CONTROLLER/src/sensing/wheel_speed.cpp"
+
+build test_wheel_pi.cpp $MODEL -o "$BUILD/test_wheel_pi"
+build test_wheel_tracking_monitor.cpp $MODEL \
+    "$CONTROLLER/src/control/acceleration_limiter.cpp" \
+    "$CONTROLLER/src/supervision/wheel_tracking_monitor.cpp" \
+    -o "$BUILD/test_wheel_tracking_monitor"
+
+echo "== WheelPI"
 "$BUILD/test_wheel_pi"
+echo "== WheelTrackingMonitor"
+"$BUILD/test_wheel_tracking_monitor"

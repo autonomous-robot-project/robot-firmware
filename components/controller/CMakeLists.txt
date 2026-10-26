@@ -9,6 +9,7 @@ idf_component_register(SRCS "src/controller.cpp"
                             "src/sensing/wheel_speed.cpp"
                             "src/supervision/task_watchdog.cpp"
                             "src/supervision/watchdog_test_trigger.cpp"
+                            "src/supervision/wheel_tracking_monitor.cpp"
                        INCLUDE_DIRS "include"
                        REQUIRES driver
                        PRIV_INCLUDE_DIRS "private_include"

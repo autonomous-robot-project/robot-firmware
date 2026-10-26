@@ -96,7 +96,8 @@ void Controller::control_cycle(std::chrono::microseconds release)
     const WheelPair references = wheel_references(command);
     drive_wheels(references, measured);
 
-    publish_state(command, release);
+    const bool wheels_lost_tracking = tracking_lost(references, measured, release);
+    publish_state(command, active_faults(release, wheels_lost_tracking));
     record_instrumentation(latest, release, measured);
 
     watchdog_.feed();
@@ -130,10 +131,21 @@ void Controller::drive_wheels(const WheelPair &references, const WheelPair &meas
     applied_duty_ = duty;
 }
 
-void Controller::publish_state(const Command &command, std::chrono::microseconds now)
+bool Controller::tracking_lost(
+    const WheelPair &references, const WheelPair &measured, std::chrono::microseconds now
+)
+{
+    // Both monitors run every cycle, so each one keeps its own timing.
+    const bool left_lost = left_tracking_.update(references.left, measured.left, now);
+    const bool right_lost = right_tracking_.update(references.right, measured.right, now);
+
+    return left_lost || right_lost;
+}
+
+void Controller::publish_state(const Command &command, uint32_t faults)
 {
     State state;
-    state.faults = active_faults(now);
+    state.faults = faults;
     state.echo = command;
     states_.write(state);
 }
@@ -148,9 +160,14 @@ Twist Controller::target_twist(const Command &command)
     return {.linear = command.linear, .angular = command.angular};
 }
 
-uint32_t Controller::active_faults(std::chrono::microseconds now) const
+uint32_t Controller::active_faults(std::chrono::microseconds now, bool tracking_lost) const
 {
     uint32_t faults = 0;
+
+    if (tracking_lost)
+    {
+        faults |= State::FAULT_COGNIZANT;
+    }
 
     // `now` counts from the boot. The code stays active long enough for the sequencer to see it,
     // even after a slow reconnection of the session (ADR 029).
