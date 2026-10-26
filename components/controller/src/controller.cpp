@@ -16,6 +16,9 @@ Controller::Controller() : left_motor_(LEFT_MOTOR), right_motor_(RIGHT_MOTOR)
 
 void Controller::start()
 {
+    watchdog_.start();
+    restarted_by_watchdog_ = TaskWatchdog::caused_last_restart();
+    watchdog_test_trigger_.start();
     left_motor_.start();
     right_motor_.start();
     const BaseType_t created = xTaskCreatePinnedToCore(
@@ -53,6 +56,7 @@ void Controller::task_entry(void *controller)
 void Controller::run()
 {
     const TickType_t period = pdMS_TO_TICKS(T_C.count());
+    watchdog_.watch_calling_task();
     TickType_t last_release = xTaskGetTickCount();
     // Waits for the first release, so that t_0 is a release instant and the nominal release
     // instants are t_k = t_0 + k * T_C (V-05).
@@ -68,6 +72,8 @@ void Controller::run()
 
 void Controller::control_cycle(std::chrono::microseconds release)
 {
+    watchdog_test_trigger_.hang_if_requested();
+
     const std::optional<StampedCommand> latest = commands_.read();
 
     // Decided once per cycle: every step below uses this copy, already expired if too old.
@@ -79,10 +85,25 @@ void Controller::control_cycle(std::chrono::microseconds release)
     right_motor_.apply(brake);
 
     State state;
+    state.faults = active_faults(release);
     state.echo = command;
     states_.write(state);
 
     measure(latest, release);
+    watchdog_.feed();
+}
+
+uint32_t Controller::active_faults(std::chrono::microseconds now) const
+{
+    uint32_t faults = 0;
+    // `now` counts from the boot. The code stays active long enough for the sequencer to see it,
+    // even after a slow reconnection of the session (ADR 029).
+    const bool watchdog_restart_recent = restarted_by_watchdog_ && now < WATCHDOG_FAULT_DURATION;
+    if (watchdog_restart_recent)
+    {
+        faults |= State::FAULT_WATCHDOG_RESTART;
+    }
+    return faults;
 }
 
 Command Controller::command_in_force(

@@ -37,3 +37,9 @@ constexpr MotorDriver::Wiring RIGHT_MOTOR = {
     .in1 = {.pin = GPIO_NUM_13, .channel = LEDC_CHANNEL_2},
     .in2 = {.pin = GPIO_NUM_14, .channel = LEDC_CHANNEL_3},
 };
+
+// --- Supervision (ADR 029, V-02) ---
+constexpr std::chrono::milliseconds WATCHDOG_TIMEOUT = 3 * T_C;  // a few T_C; set on the bench
+// Longer than a slow reconnection of the session (robot-docs#39); set on the bench.
+constexpr std::chrono::seconds WATCHDOG_FAULT_DURATION{10};
+constexpr gpio_num_t WATCHDOG_TEST_PIN = GPIO_NUM_48;  // robot-docs hardware/cabeamento.md

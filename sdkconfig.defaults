@@ -14,3 +14,10 @@ CONFIG_FREERTOS_HZ=1000
 
 # LEDC duty updates run in the control task, whose code V-09 asks to be in IRAM
 CONFIG_LEDC_CTRL_FUNC_IN_IRAM=y
+
+# The task watchdog is configured in code (ADR 029): only the control task, with a timeout of a
+# few T_C, which the Kconfig option in seconds cannot express
+CONFIG_ESP_TASK_WDT_INIT=n
+
+# The control task reads the hang injection pin every cycle (V-02, V-09)
+CONFIG_GPIO_CTRL_FUNC_IN_IRAM=y

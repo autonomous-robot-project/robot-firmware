@@ -23,6 +23,17 @@ struct CommandMessageBehavior
         static constexpr uint8_t GO_TO = robot_interfaces__msg__Command__GO_TO;
 };
 
+// Fault codes of StateMessage::faults (State.msg).
+struct StateMessageFault
+{
+    public:
+        static constexpr uint32_t COGNIZANT = robot_interfaces__msg__State__FAULT_COGNIZANT;
+        static constexpr uint32_t DEADLINE_MISSED =
+            robot_interfaces__msg__State__FAULT_DEADLINE_MISSED;
+        static constexpr uint32_t WATCHDOG_RESTART =
+            robot_interfaces__msg__State__FAULT_WATCHDOG_RESTART;
+};
+
 inline const rosidl_message_type_support_t *command_type_support()
 {
     return ROSIDL_GET_MSG_TYPE_SUPPORT(robot_interfaces, msg, Command);

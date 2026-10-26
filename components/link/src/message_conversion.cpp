@@ -1,5 +1,11 @@
 #include "message_conversion.h"
 
+// The controller repeats the fault codes of State.msg, because it does not depend on micro-ROS
+// (ADR 018). The faults mask is copied bit for bit, so the two must agree.
+static_assert(State::FAULT_COGNIZANT == StateMessageFault::COGNIZANT);
+static_assert(State::FAULT_DEADLINE_MISSED == StateMessageFault::DEADLINE_MISSED);
+static_assert(State::FAULT_WATCHDOG_RESTART == StateMessageFault::WATCHDOG_RESTART);
+
 static std::optional<Behavior> to_behavior(uint8_t code)
 {
     switch (code)

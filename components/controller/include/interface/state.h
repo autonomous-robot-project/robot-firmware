@@ -9,6 +9,12 @@
 struct State
 {
     public:
+        // Fault codes, one bit each in `faults`, with the values of the constants of State.msg
+        // (the link checks them at compile time).
+        static constexpr uint32_t FAULT_COGNIZANT = 1u << 0;         // RF-02
+        static constexpr uint32_t FAULT_DEADLINE_MISSED = 1u << 1;   // ADR 028
+        static constexpr uint32_t FAULT_WATCHDOG_RESTART = 1u << 2;  // ADR 029
+
         uint32_t faults = 0;    // active faults, one bit per code
         uint32_t reflexes = 0;  // active reflexes, one bit per code
         Command echo;           // command in force this cycle

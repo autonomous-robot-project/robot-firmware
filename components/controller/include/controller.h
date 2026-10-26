@@ -9,6 +9,8 @@
 #include "channels/latest_value_channel.h"
 #include "actuation/motor_driver.h"
 #include "interface/state.h"
+#include "supervision/watchdog_test_trigger.h"
+#include "supervision/task_watchdog.h"
 
 // Controller layer (ADR 018): the real-time control task on core 1 and its latest-value channels.
 // It does not depend on micro-ROS; the link feeds the command channel and reads the state channel.
@@ -19,8 +21,8 @@ class Controller
         Controller(const Controller &) = delete;
         Controller &operator=(const Controller &) = delete;
 
-        // Starts the motor drivers, with the wheels free, and then the control task. Called once,
-        // at boot.
+        // Starts the watchdog, the watchdog test trigger and the motor drivers, with the wheels free, and
+        // then the control task. Called once, at boot.
         void start();
 
         // Producer side of the command channel, called by the link. Stamps the arrival time,
@@ -58,6 +60,9 @@ class Controller
             const std::optional<StampedCommand> &latest, std::chrono::microseconds now
         );
 
+        // Faults active at `now`, one bit per code (State::FAULT_*).
+        [[nodiscard]] uint32_t active_faults(std::chrono::microseconds now) const;
+
         // Measurements of the cycle for the verifications (ADR 028); never read by the control.
         void measure(const std::optional<StampedCommand> &latest, std::chrono::microseconds cycle);
 
@@ -67,4 +72,7 @@ class Controller
         ExpiryMeter expiry_meter_;
         MotorDriver left_motor_;
         MotorDriver right_motor_;
+        TaskWatchdog watchdog_;
+        WatchdogTestTrigger watchdog_test_trigger_;
+        bool restarted_by_watchdog_ = false;
 };
