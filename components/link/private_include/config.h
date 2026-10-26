@@ -12,8 +12,8 @@
 // --- UART (ADR 043) ---
 constexpr UartTransport::Config UART_CONFIG = {
     .port = 1,     // UART1
-    .tx_pin = 42,  // robot-docs hardware/cabeamento.md
-    .rx_pin = 41,
+    .tx_pin = 41,  // robot-docs hardware/cabeamento.md
+    .rx_pin = 40,
     .baud = 921600,
     .rx_buffer_bytes = 1024,  // above the XRCE-DDS serial MTU (512 B)
 };
