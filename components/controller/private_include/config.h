@@ -42,4 +42,4 @@ constexpr MotorDriver::Wiring RIGHT_MOTOR = {
 constexpr std::chrono::milliseconds WATCHDOG_TIMEOUT = 3 * T_C;  // a few T_C; set on the bench
 // Longer than a slow reconnection of the session (robot-docs#39); set on the bench.
 constexpr std::chrono::seconds WATCHDOG_FAULT_DURATION{10};
-constexpr gpio_num_t WATCHDOG_TEST_PIN = GPIO_NUM_48;  // robot-docs hardware/cabeamento.md
+constexpr gpio_num_t WATCHDOG_TEST_PIN = GPIO_NUM_38;  // robot-docs hardware/cabeamento.md
