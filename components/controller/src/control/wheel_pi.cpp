@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include "config.h"
+#include "control_config.h"
 
 constexpr float BRAKE = 0.0f;
 

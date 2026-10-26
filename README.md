@@ -17,3 +17,7 @@ The report goes to `warnings.txt`. `IDF_TOOLCHAIN` goes in the environment: `cla
 `tools/motor_characterization`: open-loop characterization of the motors, with the wheels suspended. A separate ESP-IDF app that reuses the `controller` component (no link, no micro-ROS). Build it in its folder with `idf.py build`, flash the app at `0x10000` as the robot firmware, and run on the RPi `python3 characterize.py record <USB port> <file.csv>`: the script starts the run, records the CSV and prints the dead zone, the steady speed and the time constant of each step, and the line speed = gain · (|duty| − dead zone). Flash the robot firmware back afterwards.
 
 The brake after each step is the full brake, which stresses the motor and the gearbox mechanically and thermally. The steps go from the lowest duty up: watch the first brakes, at low speed, and cut the motor supply if the gearbox shows trouble (ADR 023).
+
+## Unit tests on the host
+
+`test/host/run.sh` builds and runs, with plain `g++` and no ESP-IDF, the unit tests of the control classes that use only `control_config.h`. Today: `WheelPI`, against a first-order model of the motor (integral bounded with the wheel stalled or the reference out of reach, settling time, brake below v_min).

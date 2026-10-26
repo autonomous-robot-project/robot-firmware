@@ -1,6 +1,6 @@
 #include "control/inverse_kinematics.h"
 
-#include "config.h"
+#include "control_config.h"
 
 WheelPair inverse_kinematics(const Twist &twist)
 {

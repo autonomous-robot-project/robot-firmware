@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#include "config.h"
+#include "control_config.h"
 
 Twist AccelerationLimiter::limit(const Twist &target)
 {

@@ -11,6 +11,10 @@ class WheelPI
         // Duty for this cycle, saturated at DUTY_MAX.
         [[nodiscard]] float update(float reference, float measured);
 
+        // The integral term, in duty: exposed for the unit test of its bound (test/host), since
+        // the saturated output hides it exactly when it could grow.
+        [[nodiscard]] float integral() const { return integral_; }
+
     private:
         float integral_ = 0.0f;  // the integral term, in duty
 };

@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#include "config.h"
+#include "control_config.h"
 
 float WheelSpeed::update(
     const std::optional<EncoderEdges> &edges, std::chrono::microseconds now, float applied_duty
