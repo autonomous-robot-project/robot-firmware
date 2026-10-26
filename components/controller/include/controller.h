@@ -9,6 +9,8 @@
 #include "channels/latest_value_channel.h"
 #include "actuation/motor_driver.h"
 #include "interface/state.h"
+#include "sensing/wheel_encoder.h"
+#include "sensing/wheel_speed.h"
 #include "supervision/watchdog_test_trigger.h"
 #include "supervision/task_watchdog.h"
 
@@ -21,8 +23,8 @@ class Controller
         Controller(const Controller &) = delete;
         Controller &operator=(const Controller &) = delete;
 
-        // Starts the watchdog, the watchdog test trigger and the motor drivers, with the wheels free, and
-        // then the control task. Called once, at boot.
+        // Starts the watchdog, the watchdog test trigger, the encoders and the motor drivers, with
+        // the wheels free, and then the control task. Called once, at boot, on core 0.
         void start();
 
         // Producer side of the command channel, called by the link. Stamps the arrival time,
@@ -36,6 +38,14 @@ class Controller
         [[nodiscard]] std::optional<Instrumentation> latest_instrumentation() const;
 
     private:
+        // Measured speed of each wheel in one cycle, in m/s (V-02).
+        struct WheelSpeeds
+        {
+            public:
+                float left = 0.0f;
+                float right = 0.0f;
+        };
+
         struct StampedCommand
         {
             public:
@@ -64,7 +74,11 @@ class Controller
         [[nodiscard]] uint32_t active_faults(std::chrono::microseconds now) const;
 
         // Measurements of the cycle for the verifications (ADR 028); never read by the control.
-        void measure(const std::optional<StampedCommand> &latest, std::chrono::microseconds cycle);
+        void measure(
+            const std::optional<StampedCommand> &latest,
+            std::chrono::microseconds cycle,
+            const WheelSpeeds &wheel_speeds
+        );
 
         LatestValueChannel<StampedCommand> commands_;
         LatestValueChannel<State> states_;
@@ -72,6 +86,10 @@ class Controller
         ExpiryMeter expiry_meter_;
         MotorDriver left_motor_;
         MotorDriver right_motor_;
+        WheelEncoder left_encoder_;
+        WheelEncoder right_encoder_;
+        WheelSpeed left_speed_;
+        WheelSpeed right_speed_;
         TaskWatchdog watchdog_;
         WatchdogTestTrigger watchdog_test_trigger_;
         bool restarted_by_watchdog_ = false;

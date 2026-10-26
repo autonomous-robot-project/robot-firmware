@@ -78,5 +78,7 @@ InstrumentationMessage to_message(const Instrumentation &instrumentation)
     return InstrumentationMessage{
         .expiries = instrumentation.expiries,
         .expiry_delay_us = instrumentation.expiry_delay_us,
+        .left_wheel_speed = instrumentation.left_wheel_speed,
+        .right_wheel_speed = instrumentation.right_wheel_speed,
     };
 }

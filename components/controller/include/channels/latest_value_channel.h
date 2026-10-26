@@ -29,6 +29,14 @@ template <typename T> class LatestValueChannel
         // Producer: replaces the value in the channel.
         void write(const T &value) { xQueueOverwrite(handle_, &value); }
 
+        // Producer in an interrupt: replaces the value in the channel.
+        void write_from_isr(const T &value)
+        {
+            BaseType_t higher_priority_task_woken = pdFALSE;
+            xQueueOverwriteFromISR(handle_, &value, &higher_priority_task_woken);
+            portYIELD_FROM_ISR(higher_priority_task_woken);
+        }
+
         // Consumer: the latest value, which stays in the channel; empty if never written.
         [[nodiscard]] std::optional<T> read() const
         {

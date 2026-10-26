@@ -1,5 +1,7 @@
 #include "controller.h"
 
+#include <driver/gpio.h>
+#include <esp_err.h>
 #include <esp_timer.h>
 #include <freertos/task.h>
 
@@ -10,7 +12,9 @@ static std::chrono::microseconds now()
     return std::chrono::microseconds{esp_timer_get_time()};
 }
 
-Controller::Controller() : left_motor_(LEFT_MOTOR), right_motor_(RIGHT_MOTOR)
+Controller::Controller()
+    : left_motor_(LEFT_MOTOR), right_motor_(RIGHT_MOTOR), left_encoder_(LEFT_ENCODER_PIN),
+      right_encoder_(RIGHT_ENCODER_PIN)
 {
 }
 
@@ -19,6 +23,12 @@ void Controller::start()
     watchdog_.start();
     restarted_by_watchdog_ = TaskWatchdog::caused_last_restart();
     watchdog_test_trigger_.start();
+    // One interrupt service for all GPIO interrupts, on the calling core (core 0).
+    constexpr int default_flags = 0;
+    const esp_err_t installed = gpio_install_isr_service(default_flags);
+    ESP_ERROR_CHECK(installed);
+    left_encoder_.start();
+    right_encoder_.start();
     left_motor_.start();
     right_motor_.start();
     const BaseType_t created = xTaskCreatePinnedToCore(
@@ -79,8 +89,14 @@ void Controller::control_cycle(std::chrono::microseconds release)
     // Decided once per cycle: every step below uses this copy, already expired if too old.
     const Command command = command_in_force(latest, release);
 
-    // Until the PI exists, the only reference is the stop: both wheels brake.
+    // Until the PI exists, the only reference is the stop: both wheels brake, so the duty applied
+    // in the previous cycle is also the brake.
     constexpr float brake = 0.0f;
+    const WheelSpeeds wheel_speeds = {
+        .left = left_speed_.update(left_encoder_.latest_edges(), release, brake),
+        .right = right_speed_.update(right_encoder_.latest_edges(), release, brake),
+    };
+
     left_motor_.apply(brake);
     right_motor_.apply(brake);
 
@@ -89,7 +105,7 @@ void Controller::control_cycle(std::chrono::microseconds release)
     state.echo = command;
     states_.write(state);
 
-    measure(latest, release);
+    measure(latest, release, wheel_speeds);
     watchdog_.feed();
 }
 
@@ -124,12 +140,17 @@ bool Controller::StampedCommand::expired(std::chrono::microseconds now) const
 }
 
 void Controller::measure(
-    const std::optional<StampedCommand> &latest, std::chrono::microseconds cycle
+    const std::optional<StampedCommand> &latest,
+    std::chrono::microseconds cycle,
+    const WheelSpeeds &wheel_speeds
 )
 {
     if (latest && latest->expired(cycle))
     {
         expiry_meter_.record(latest->arrival, cycle);
     }
-    instrumentation_.write(expiry_meter_.measurements());
+    Instrumentation instrumentation = expiry_meter_.measurements();
+    instrumentation.left_wheel_speed = wheel_speeds.left;
+    instrumentation.right_wheel_speed = wheel_speeds.right;
+    instrumentation_.write(instrumentation);
 }
