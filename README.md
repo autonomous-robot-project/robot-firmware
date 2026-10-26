@@ -11,3 +11,7 @@ IDF_TOOLCHAIN=clang idf.py -B build-clang clang-check --run-clang-tidy-options "
 ```
 
 The report goes to `warnings.txt`. `IDF_TOOLCHAIN` goes in the environment: `clang-check` reconfigures the build on its own and ignores a `-D` option.
+
+## Bench tools
+
+`tools/motor_characterization`: open-loop characterization of the motors, with the wheels suspended. A separate ESP-IDF app that reuses the `controller` component (no link, no micro-ROS). Build it in its folder with `idf.py build`, flash the app at `0x10000` as the robot firmware, and run on the RPi `python3 characterize.py record <USB port> <file.csv>`: the script starts the run, records the CSV and prints the dead zone, the steady speed and the time constant of each step, and the line speed = gain · (|duty| − dead zone). Flash the robot firmware back afterwards.
