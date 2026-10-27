@@ -60,7 +60,7 @@ constexpr float T_F = 2.0f * WHEEL_SETTLING_TIME;  // T_f (s): persistence of th
 // v >= s / ((1 - e_f) T_f), about 0.020 m/s.
 constexpr float V_MIN_DETECTION = WHEEL_TRAVEL_PER_EDGE / ((1.0f - E_F) * T_F);
 // Control limit: below about 0.07 m/s the edges are so sparse that the loop falls into a limit
-// cycle (host test with the encoder model; provisional, to confirm with the motor).
+// cycle (host test with the encoder model; confirmed on the motor, robot-docs nota 0011).
 constexpr float V_MIN_CONTROL = 0.07f;
 // v_min (m/s): the larger of the two. Below it the PI brakes (ADR 030).
 constexpr float V_MIN = std::max(V_MIN_DETECTION, V_MIN_CONTROL);
