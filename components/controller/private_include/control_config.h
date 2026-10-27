@@ -31,9 +31,10 @@ constexpr float TRACK_WIDTH = 0.15f;  // b (m), between the wheels (robot-docs#2
 
 // --- Wheel PI: gains from the motor model and the settling time ---
 // Motor as a first-order plant, speed / duty = K / (tau·s + 1), from characterize.py.
-// K, (m/s) per unit of duty; provisional: the TT motor makes ~0.68 m/s at 6 V, duty 0.48.
-constexpr float MOTOR_GAIN = 1.4f;
-constexpr float MOTOR_TIME_CONSTANT = 0.1f;  // tau (s); provisional
+// K, (m/s) per unit of duty, and tau from the encoder AO run, wheels suspended (robot-docs nota
+// 0010): K from 1.0 to 1.45 and tau from 30 to 57 ms over the wheels and directions; the medians.
+constexpr float MOTOR_GAIN = 1.3f;
+constexpr float MOTOR_TIME_CONSTANT = 0.04f;  // tau (s)
 // Settling time (2 %) of the wheel speed, a design choice: at least ~0.4 s, so the closed loop is
 // slower than the edges at 0.2 m/s (one every ~51 ms), and at most ~0.95 s, so a stall is detected
 // within the 2 s of V-02.
