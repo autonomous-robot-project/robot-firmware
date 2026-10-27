@@ -3,10 +3,10 @@ Open-loop characterization of the motors, with the wheels suspended (bench tool,
 
 Records the CSV that the motor_characterization app prints on the USB console and reports, for
 each wheel:
-- the duty at which the wheel starts and stops on the slow ramp;
+- the duty at which the wheel starts and stops on the slow ramp of each direction;
 - for each duty step, the steady speed and the time constant tau of a first-order response;
 - for the full brake after each step, the braking time constant, which bounds A_DEC (ADR 023);
-- the line speed = gain * (|duty| - dead zone) fitted to the steps.
+- the line speed = gain * (|duty| - dead zone) fitted to the steps of each direction.
 
 Each step is read from the travelled distance (the edges times s), not from s / dt: after a
 step, the distance of a first-order response tends to the line v * (t - tau), so the slope of the
@@ -32,6 +32,7 @@ STEADY_WINDOW_S = 1.0  # the end of the step where the response is steady
 BRAKE_WINDOW_S = 1.9  # after the step, within the 2 s of brake of the app
 MIN_FIT_EDGES = 3
 WHEELS = ('L', 'R')
+DIRECTION_NAMES = {1: 'forward', -1: 'backward'}
 
 
 @dataclass
@@ -152,11 +153,12 @@ class StaticMap:
 
 
 class DeadZone:
-    """Duty at the first edge of the ramp up and at the last edge of the ramp down."""
+    """Duty at the first edge of the ramp up and at the last edge of the ramp down, per direction."""
 
-    def __init__(self, recording, edges, ramp_end):
-        peak = max(recording.duty_changes, key=lambda change: change.duty).time
-        rising = [edge for edge in edges if edge <= peak]
+    def __init__(self, recording, edges, direction, ramp_start, ramp_end):
+        ramp = [change for change in recording.duty_changes if ramp_start <= change.time < ramp_end]
+        peak = max(ramp, key=lambda change: direction * change.duty).time
+        rising = [edge for edge in edges if ramp_start <= edge <= peak]
         falling = [edge for edge in edges if peak < edge < ramp_end]
         self.start_duty = recording.duty_at(rising[0]) if rising else math.nan
         self.stop_duty = recording.duty_at(falling[-1]) if falling else math.nan
@@ -168,15 +170,22 @@ class Report:
 
     def print(self):
         steps = Step.find_all(self.recording)
-        ramp_end = steps[0].start if steps else math.inf
+        ramps_start = self.recording.duty_changes[0].time
+        ramps_end = steps[0].start if steps else math.inf
+        reverse_ramp_start = next(
+            change.time for change in self.recording.duty_changes if change.duty < 0.0
+        )
+        ramps = {1: (ramps_start, reverse_ramp_start), -1: (reverse_ramp_start, ramps_end)}
         for wheel in WHEELS:
             edges = self.recording.edges[wheel]
-            dead_zone = DeadZone(self.recording, edges, ramp_end)
             print(f'Wheel {wheel}: {len(edges)} edges')
-            print(
-                f'  dead zone: starts at duty {dead_zone.start_duty:.3f}, '
-                f'stops at duty {dead_zone.stop_duty:.3f}'
-            )
+            for direction, (ramp_start, ramp_end) in ramps.items():
+                dead_zone = DeadZone(self.recording, edges, direction, ramp_start, ramp_end)
+                print(
+                    f'  dead zone {DIRECTION_NAMES[direction]}: '
+                    f'starts at duty {dead_zone.start_duty:+.3f}, '
+                    f'stops at duty {dead_zone.stop_duty:+.3f}'
+                )
             responses = [StepResponse.of(step, edges) for step in steps]
             print('   duty  speed (m/s)  tau (ms)  tau_brake (ms)')
             for response in responses:
@@ -185,10 +194,14 @@ class Report:
                     f'{response.time_constant * 1e3:8.0f}  '
                     f'{response.braking_time_constant * 1e3:14.0f}'
                 )
-            static_map = StaticMap(responses)
-            print(
-                f'  fit: speed = {static_map.gain:.3f} m/s * (|duty| - {static_map.dead_zone:.3f})'
-            )
+            for direction, name in DIRECTION_NAMES.items():
+                static_map = StaticMap(
+                    [response for response in responses if response.duty * direction > 0.0]
+                )
+                print(
+                    f'  fit {name}: speed = {static_map.gain:.3f} m/s '
+                    f'* (|duty| - {static_map.dead_zone:.3f})'
+                )
 
 
 def record(port, path):

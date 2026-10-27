@@ -14,9 +14,12 @@ constexpr float BRAKE = 0.0f;
 
 DutySchedule::DutySchedule()
 {
-    add_ramp(RAMP_DURATION, BRAKE, DUTY_LIMIT);
-    add_ramp(RAMP_DURATION, DUTY_LIMIT, BRAKE);
-    add_hold(BRAKE_DURATION, BRAKE);
+    for (const float direction : {1.0f, -1.0f})
+    {
+        add_ramp(RAMP_DURATION, BRAKE, direction * DUTY_LIMIT);
+        add_ramp(RAMP_DURATION, direction * DUTY_LIMIT, BRAKE);
+        add_hold(BRAKE_DURATION, BRAKE);
+    }
     for (const float direction : {1.0f, -1.0f})
     {
         for (const float duty : STEP_DUTIES)
