@@ -11,6 +11,5 @@ idf_component_register(SRCS "src/controller.cpp"
                             "src/supervision/watchdog_test_trigger.cpp"
                             "src/supervision/wheel_tracking_monitor.cpp"
                        INCLUDE_DIRS "include"
-                       REQUIRES driver
-                       PRIV_INCLUDE_DIRS "private_include"
-                       PRIV_REQUIRES esp_timer)
+                       REQUIRES driver esp_timer
+                       PRIV_INCLUDE_DIRS "private_include")

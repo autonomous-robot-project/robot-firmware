@@ -33,5 +33,8 @@ constexpr std::chrono::milliseconds WATCHDOG_TIMEOUT = 3 * T_C;  // a few T_C; s
 constexpr std::chrono::seconds WATCHDOG_FAULT_DURATION{10};
 
 // --- Encoders (V-02; pins in pins.h) ---
-// Shorter than s / v_max with margin: v_max = 0.5 m/s gives 20 ms (V-02, step 9).
-constexpr std::chrono::milliseconds ENCODER_MIN_EDGE_INTERVAL{15};
+// The comparator chatters at both transitions of a slot (robot-docs nota 0010): a level counts
+// after ENCODER_STABLE_SAMPLES samples, 2 ms, longer than the chatter and shorter than half a slot
+// at v_max (s / (2 v_max) = 10 ms at 0.5 m/s).
+constexpr std::chrono::microseconds ENCODER_SAMPLE_PERIOD{500};
+constexpr int ENCODER_STABLE_SAMPLES = 4;
