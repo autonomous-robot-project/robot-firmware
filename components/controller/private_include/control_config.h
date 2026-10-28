@@ -82,7 +82,7 @@ constexpr float V_MIN = std::max(V_MIN_DETECTION, V_MIN_CONTROL);
 // be declared stopped within the rest, or the first edge of the reverse keeps the old direction and
 // the wheel runs away (robot-docs nota 0014). T_VEL must also stay above the edge interval at v_min
 // (0.15 s), so the estimate does not drop to zero between two edges.
-constexpr std::chrono::microseconds T_VEL{300000};
+constexpr std::chrono::microseconds T_VEL{std::chrono::milliseconds{300}};
 constexpr float T_VEL_SECONDS = std::chrono::duration<float>(T_VEL).count();
 constexpr float WHEEL_STOP_TIME = 0.05f;  // s, braked from v_min (robot-docs nota 0010)
 constexpr float REVERSAL_BRAKE_TIME = V_MIN / A_DEC + V_MIN / A_ACCEL;  // s
