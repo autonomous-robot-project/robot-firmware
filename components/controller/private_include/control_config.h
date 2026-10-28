@@ -76,9 +76,15 @@ constexpr float V_MIN_CONTROL = 0.07f;
 // v_min (m/s): the larger of the two. Below it the PI brakes (ADR 030).
 constexpr float V_MIN = std::max(V_MIN_DETECTION, V_MIN_CONTROL);
 
-// No edge for T_VEL microsends means the speed zero. It comes from the detection limit, (1 - e_f) T_f: with the
-// control limit it would equal the edge interval at v_min, and the estimate would drop to zero
-// between two edges.
-constexpr std::chrono::microseconds T_VEL{
-    static_cast<int64_t>(WHEEL_TRAVEL_PER_EDGE / V_MIN_DETECTION * 1e6f)
-};
+// No edge for T_VEL means the speed zero, and only then is the direction of the wheel re-evaluated
+// (ADR 019). A reversing wheel is braked while the ramp takes its reference across +-v_min,
+// v_min / a_dec + v_min / a_accel = 0.42 s; it stops in ~50 ms (robot-docs nota 0010), so it must
+// be declared stopped within the rest, or the first edge of the reverse keeps the old direction and
+// the wheel runs away (robot-docs nota 0014). T_VEL must also stay above the edge interval at v_min
+// (0.15 s), so the estimate does not drop to zero between two edges.
+constexpr std::chrono::microseconds T_VEL{300000};
+constexpr float T_VEL_SECONDS = std::chrono::duration<float>(T_VEL).count();
+constexpr float WHEEL_STOP_TIME = 0.05f;  // s, braked from v_min (robot-docs nota 0010)
+constexpr float REVERSAL_BRAKE_TIME = V_MIN / A_DEC + V_MIN / A_ACCEL;  // s
+static_assert(T_VEL_SECONDS + WHEEL_STOP_TIME < REVERSAL_BRAKE_TIME);
+static_assert(T_VEL_SECONDS > WHEEL_TRAVEL_PER_EDGE / V_MIN);
