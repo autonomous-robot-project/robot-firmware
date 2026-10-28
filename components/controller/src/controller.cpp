@@ -86,21 +86,29 @@ void Controller::run()
 
 void Controller::control_cycle(std::chrono::microseconds release)
 {
+    const std::chrono::microseconds start = now();
     watchdog_test_trigger_.hang_if_requested();
 
     const std::optional<StampedCommand> latest = commands_.read();
     // Decided once per cycle: every step below uses this copy, already expired if too old.
     const Command command = command_in_force(latest, release);
 
+    // PID Control
     const WheelPair measured = measure_wheel_speeds(release);
     const WheelPair references = wheel_references(command);
     drive_wheels(references, measured);
 
     const bool wheels_lost_tracking = tracking_lost(references, measured, release);
     publish_state(command, active_faults(release, wheels_lost_tracking));
-    record_instrumentation(latest, release, measured);
+    record_expiry(latest, release);
+    publish_instrumentation(measured);
 
     watchdog_.feed();
+
+    // Last step, so C and R cover the whole cycle, the instrumentation included; this cycle
+    // reaches the instrumentation in the next one, which is enough for values accumulated since
+    // boot (V-05).
+    deadline_meter_.record(release, start, now());
 }
 
 WheelPair Controller::measure_wheel_speeds(std::chrono::microseconds now)
@@ -198,19 +206,22 @@ bool Controller::StampedCommand::expired(std::chrono::microseconds now) const
     return now - arrival > T_CMD;
 }
 
-void Controller::record_instrumentation(
-    const std::optional<StampedCommand> &latest,
-    std::chrono::microseconds cycle,
-    const WheelPair &wheel_speeds
+void Controller::record_expiry(
+    const std::optional<StampedCommand> &latest, std::chrono::microseconds cycle
 )
 {
-    if (latest && latest->expired(cycle))
+    const bool latest_expired = latest && latest->expired(cycle);
+    if (latest_expired)
     {
         expiry_meter_.record(latest->arrival, cycle);
     }
+}
 
-    Instrumentation instrumentation = expiry_meter_.measurements();
-    instrumentation.left_wheel_speed = wheel_speeds.left;
-    instrumentation.right_wheel_speed = wheel_speeds.right;
-    instrumentation_.write(instrumentation);
+void Controller::publish_instrumentation(const WheelPair &wheel_speeds)
+{
+    instrumentation_.write({
+        .expiry = expiry_meter_.measurements(),
+        .deadlines = deadline_meter_.measurements(),
+        .wheel_speeds = wheel_speeds,
+    });
 }

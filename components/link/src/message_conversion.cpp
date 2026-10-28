@@ -76,9 +76,9 @@ StateMessage to_message(const State &state)
 InstrumentationMessage to_message(const Instrumentation &instrumentation)
 {
     return InstrumentationMessage{
-        .expiries = instrumentation.expiries,
-        .expiry_delay_us = instrumentation.expiry_delay_us,
-        .left_wheel_speed = instrumentation.left_wheel_speed,
-        .right_wheel_speed = instrumentation.right_wheel_speed,
+        .expiries = instrumentation.expiry.expiries,
+        .expiry_delay_us = instrumentation.expiry.expiry_delay_us,
+        .left_wheel_speed = instrumentation.wheel_speeds.left,
+        .right_wheel_speed = instrumentation.wheel_speeds.right,
     };
 }

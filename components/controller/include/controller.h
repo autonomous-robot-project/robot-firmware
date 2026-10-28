@@ -93,17 +93,19 @@ class Controller
 
         void publish_state(const Command &command, uint32_t faults);
 
-        // Measurements of the cycle for the verifications (ADR 028); never read by the control.
-        void record_instrumentation(
-            const std::optional<StampedCommand> &latest,
-            std::chrono::microseconds cycle,
-            const WheelPair &wheel_speeds
+        // Measures the expiry of the latest command for V-06; never read by the control.
+        void record_expiry(
+            const std::optional<StampedCommand> &latest, std::chrono::microseconds cycle
         );
+
+        // Writes the measurements of the meters for the verifications (ADR 028).
+        void publish_instrumentation(const WheelPair &wheel_speeds);
 
         LatestValueChannel<StampedCommand> commands_;
         LatestValueChannel<State> states_;
         LatestValueChannel<Instrumentation> instrumentation_;
         ExpiryMeter expiry_meter_;
+        DeadlineMeter deadline_meter_;
         MotorDriver left_motor_;
         MotorDriver right_motor_;
         WheelEncoder left_encoder_;

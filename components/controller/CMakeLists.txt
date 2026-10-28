@@ -1,4 +1,5 @@
 idf_component_register(SRCS "src/controller.cpp"
+                            "src/instrumentation/deadline_meter.cpp"
                             "src/instrumentation/expiry_meter.cpp"
                             "src/actuation/driver_input.cpp"
                             "src/actuation/motor_driver.cpp"

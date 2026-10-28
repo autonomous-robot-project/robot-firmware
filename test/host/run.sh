@@ -16,8 +16,12 @@ build test_wheel_tracking_monitor.cpp $MODEL \
     "$CONTROLLER/src/control/acceleration_limiter.cpp" \
     "$CONTROLLER/src/supervision/wheel_tracking_monitor.cpp" \
     -o "$BUILD/test_wheel_tracking_monitor"
+build test_deadline_meter.cpp "$CONTROLLER/src/instrumentation/deadline_meter.cpp" \
+    -o "$BUILD/test_deadline_meter"
 
 echo "== WheelPI"
 "$BUILD/test_wheel_pi"
 echo "== WheelTrackingMonitor"
 "$BUILD/test_wheel_tracking_monitor"
+echo "== DeadlineMeter"
+"$BUILD/test_deadline_meter"
