@@ -31,7 +31,7 @@ constexpr float TRACK_WIDTH = 0.15f;  // b (m), between the wheels (robot-docs#2
 
 // --- Convergence profiles of TURN_TO and GO_TO (ADR 030); provisional values ---
 // The profiles decelerate a little below the limit of the ramp, as margin for the discretization.
-constexpr float A_DEC_PROFILE = 0.9f * A_DEC;                         // m/s²
+constexpr float A_DEC_PROFILE = 0.9f * A_DEC;                            // m/s²
 constexpr float ALPHA_DEC_PROFILE = 2.0f * A_DEC_PROFILE / TRACK_WIDTH;  // alpha_dec (rad/s²)
 constexpr float V_MAX = 0.2f;  // v_max (m/s): the speed of the trials, until robot-docs#27
 // omega_max (rad/s): turning in place, the wheel does not go above v_max.
@@ -79,12 +79,12 @@ constexpr float V_MIN = std::max(V_MIN_DETECTION, V_MIN_CONTROL);
 // No edge for T_VEL means the speed zero, and only then is the direction of the wheel re-evaluated
 // (ADR 019). A reversing wheel is braked while the ramp takes its reference across +-v_min,
 // v_min / a_dec + v_min / a_accel = 0.42 s; it stops in ~50 ms (robot-docs nota 0010), so it must
-// be declared stopped within the rest, or the first edge of the reverse keeps the old direction and
-// the wheel runs away (robot-docs nota 0014). T_VEL must also stay above the edge interval at v_min
-// (0.15 s), so the estimate does not drop to zero between two edges.
+// be declared stopped within the rest, or the first edge of the reverse keeps the old direction
+// and the wheel runs away (robot-docs nota 0014). T_VEL must also stay above the edge interval at
+// v_min (0.15 s), so the estimate does not drop to zero between two edges.
 constexpr std::chrono::microseconds T_VEL{std::chrono::milliseconds{300}};
 constexpr float T_VEL_SECONDS = std::chrono::duration<float>(T_VEL).count();
-constexpr float WHEEL_STOP_TIME = 0.05f;  // s, braked from v_min (robot-docs nota 0010)
-constexpr float REVERSAL_BRAKE_TIME = V_MIN / A_DEC + V_MIN / A_ACCEL;  // s
-static_assert(T_VEL_SECONDS + WHEEL_STOP_TIME < REVERSAL_BRAKE_TIME);
+constexpr float WHEEL_STOP_SECONDS = 0.05f;  // s, braked from v_min (robot-docs nota 0010)
+constexpr float REVERSAL_BRAKE_SECONDS = V_MIN / A_DEC + V_MIN / A_ACCEL;  // s
+static_assert(T_VEL_SECONDS + WHEEL_STOP_SECONDS < REVERSAL_BRAKE_SECONDS);
 static_assert(T_VEL_SECONDS > WHEEL_TRAVEL_PER_EDGE / V_MIN);

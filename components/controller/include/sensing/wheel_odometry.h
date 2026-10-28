@@ -30,7 +30,7 @@ class WheelOdometry
         // Travel of `new_edges` edges, unsigned: s per edge.
         [[nodiscard]] static float travel(uint32_t new_edges);
 
-        // Counts since boot start at zero, as the odometry does.
+        // The first update counts from zero, as the encoder counters do at boot.
         EdgeCounts last_counts_;
         Pose pose_;
 };
