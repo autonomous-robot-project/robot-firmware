@@ -10,8 +10,8 @@
 class Controller;
 
 // One micro-ROS session with the agent, alive while the object exists (RAII): the constructor
-// creates the support, the node, the command subscription, the state and instrumentation
-// publishers and the executor;
+// creates the support, the node, the command subscription, the state, instrumentation and
+// odometry publishers and the executor;
 // the destructor destroys whatever was created, in reverse order.
 // Not copyable nor movable: the entities keep pointers into each other.
 class Session
@@ -34,6 +34,13 @@ class Session
         // Publishes the latest instrumentation of the controller, if there is one yet (ADR 028).
         void publish_instrumentation();
 
+        // Publishes the latest odometry of the controller, stamped in the clock of the agent; not
+        // before the first synchronization, nor before the first cycle (ADR 027).
+        void publish_odometry();
+
+        // Synchronizes the clock with the agent, waiting at most CLOCK_SYNC_TIMEOUT (ADR 027).
+        void synchronize_clock();
+
     private:
         // Each one creates an entity, logs a failure and returns whether it succeeded.
         bool create_support();
@@ -41,9 +48,11 @@ class Session
         bool create_command_subscription();
         bool create_state_publisher();
         bool create_instrumentation_publisher();
+        bool create_odometry_publisher();
         bool create_executor();
 
         void destroy_executor();
+        void destroy_odometry_publisher();
         void destroy_instrumentation_publisher();
         void destroy_state_publisher();
         void destroy_command_subscription();
@@ -61,17 +70,20 @@ class Session
         rcl_subscription_t command_subscription_ = rcl_get_zero_initialized_subscription();
         rcl_publisher_t state_publisher_ = rcl_get_zero_initialized_publisher();
         rcl_publisher_t instrumentation_publisher_ = rcl_get_zero_initialized_publisher();
+        rcl_publisher_t odometry_publisher_ = rcl_get_zero_initialized_publisher();
         rclc_executor_t executor_ = rclc_executor_get_zero_initialized_executor();
 
         CommandMessage command_message_{};
         StateMessage state_message_{};
         InstrumentationMessage instrumentation_message_{};
+        OdometryMessage odometry_message_{};
 
         bool support_ok_ = false;
         bool node_ok_ = false;
         bool subscription_ok_ = false;
         bool publisher_ok_ = false;
         bool instrumentation_publisher_ok_ = false;
+        bool odometry_publisher_ok_ = false;
         bool executor_ok_ = false;
         bool ready_ = false;  // every entity created
 };

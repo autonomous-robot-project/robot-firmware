@@ -6,11 +6,20 @@
 #include <freertos/task.h>
 
 #include "config.h"
+#include "control/forward_kinematics.h"
+#include "control/go_to.h"
 #include "control/inverse_kinematics.h"
+#include "control/turn_to.h"
 
 static std::chrono::microseconds now()
 {
     return std::chrono::microseconds{esp_timer_get_time()};
+}
+
+// Edges since boot; zero before the first slot, as at boot.
+static uint32_t edge_count(const std::optional<EncoderEdges> &edges)
+{
+    return edges ? edges->count : 0;
 }
 
 Controller::Controller()
@@ -62,6 +71,11 @@ std::optional<Instrumentation> Controller::latest_instrumentation() const
     return instrumentation_.read();
 }
 
+std::optional<Odometry> Controller::latest_odometry() const
+{
+    return odometry_.read();
+}
+
 void Controller::task_entry(void *controller)
 {
     static_cast<Controller *>(controller)->run();
@@ -93,13 +107,15 @@ void Controller::control_cycle(std::chrono::microseconds release)
     // Decided once per cycle: every step below uses this copy, already expired if too old.
     const Command command = command_in_force(latest, release);
 
-    // PID Control
-    const WheelPair measured = measure_wheel_speeds(release);
-    const WheelPair references = wheel_references(command);
+    const WheelEdges edges = read_wheel_edges();
+    const WheelPair measured = measure_wheel_speeds(edges, release);
+    const Pose pose = update_odometry(edges);
+    const WheelPair references = wheel_references(command, pose);
     drive_wheels(references, measured);
 
     const bool wheels_lost_tracking = tracking_lost(references, measured, release);
     publish_state(command, active_faults(release, wheels_lost_tracking));
+    publish_odometry(pose, measured, release);
     record_expiry(latest, release);
     publish_instrumentation(measured);
 
@@ -111,17 +127,38 @@ void Controller::control_cycle(std::chrono::microseconds release)
     deadline_meter_.record(release, start, now());
 }
 
-WheelPair Controller::measure_wheel_speeds(std::chrono::microseconds now)
+WheelEdges Controller::read_wheel_edges() const
+{
+    return {.left = left_encoder_.latest_edges(), .right = right_encoder_.latest_edges()};
+}
+
+WheelPair Controller::measure_wheel_speeds(const WheelEdges &edges, std::chrono::microseconds now)
 {
     return {
-        .left = left_speed_.update(left_encoder_.latest_edges(), now, applied_duty_.left),
-        .right = right_speed_.update(right_encoder_.latest_edges(), now, applied_duty_.right),
+        .left = left_speed_.update(edges.left, now, applied_duty_.left),
+        .right = right_speed_.update(edges.right, now, applied_duty_.right),
     };
 }
 
-WheelPair Controller::wheel_references(const Command &command)
+Pose Controller::update_odometry(const WheelEdges &edges)
 {
-    const Twist target = target_twist(command);
+    // The directions locked by measure_wheel_speeds in this cycle (ADR 019).
+    const WheelPair directions = {
+        .left = left_speed_.direction(),
+        .right = right_speed_.direction(),
+    };
+    const EdgeCounts counts = {
+        .left = edge_count(edges.left),
+        .right = edge_count(edges.right),
+    };
+    wheel_odometry_.update(counts, directions);
+
+    return wheel_odometry_.pose();
+}
+
+WheelPair Controller::wheel_references(const Command &command, const Pose &pose)
+{
+    const Twist target = target_twist(command, pose);
     const Twist reference = acceleration_limiter_.limit(target);
 
     return inverse_kinematics(reference);
@@ -158,14 +195,30 @@ void Controller::publish_state(const Command &command, uint32_t faults)
     states_.write(state);
 }
 
-Twist Controller::target_twist(const Command &command)
+void Controller::publish_odometry(
+    const Pose &pose, const WheelPair &wheel_speeds, std::chrono::microseconds cycle
+)
 {
-    if (command.behavior != Behavior::TWIST)
+    odometry_.write({
+        .pose = pose,
+        .twist = forward_kinematics(wheel_speeds),
+        .instant = cycle,
+    });
+}
+
+Twist Controller::target_twist(const Command &command, const Pose &pose)
+{
+    switch (command.behavior)
     {
-        return Twist{};
+        case Behavior::TWIST:
+            return {.linear = command.linear, .angular = command.angular};
+        case Behavior::TURN_TO:
+            return turn_to(command.theta, pose);
+        case Behavior::GO_TO:
+            return go_to({.x = command.x, .y = command.y}, pose);
     }
 
-    return {.linear = command.linear, .angular = command.angular};
+    return Twist{};  // unreachable: every behaviour is handled above
 }
 
 uint32_t Controller::active_faults(std::chrono::microseconds now, bool tracking_lost) const

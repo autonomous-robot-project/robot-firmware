@@ -29,6 +29,17 @@ constexpr float A_ACCEL = 0.25f;  // m/s², limited by the current and the gearb
 constexpr float A_DEC = 0.5f;     // m/s², limited by slip; steeper than A_ACCEL (robot-docs#27)
 constexpr float TRACK_WIDTH = 0.15f;  // b (m), between the wheels (robot-docs#25)
 
+// --- Convergence profiles of TURN_TO and GO_TO (ADR 030); provisional values ---
+// The profiles decelerate a little below the limit of the ramp, as margin for the discretization.
+constexpr float A_DEC_PROFILE = 0.9f * A_DEC;                         // m/s²
+constexpr float ALPHA_DEC_PROFILE = 2.0f * A_DEC_PROFILE / TRACK_WIDTH;  // alpha_dec (rad/s²)
+constexpr float V_MAX = 0.2f;  // v_max (m/s): the speed of the trials, until robot-docs#27
+// omega_max (rad/s): turning in place, the wheel does not go above v_max.
+constexpr float OMEGA_MAX = 2.0f * V_MAX / TRACK_WIDTH;
+// K_omega (1/s): heading time constant of 1 s, twice the settling time of the wheel.
+constexpr float K_OMEGA = 1.0f;
+constexpr float D_0 = 0.1f;  // d_0 (m): below it the steering of GO_TO fades out (2 eps_d, V-01)
+
 // --- Wheel PI: gains from the motor model and the settling time ---
 // Motor as a first-order plant, speed / duty = K / (tau·s + 1), from characterize.py.
 // K, (m/s) per unit of duty, and tau from the encoder AO run, wheels suspended (robot-docs nota
@@ -65,7 +76,7 @@ constexpr float V_MIN_CONTROL = 0.07f;
 // v_min (m/s): the larger of the two. Below it the PI brakes (ADR 030).
 constexpr float V_MIN = std::max(V_MIN_DETECTION, V_MIN_CONTROL);
 
-// No edge for T_VEL: speed zero. It comes from the detection limit, (1 - e_f) T_f: with the
+// No edge for T_VEL microsends means the speed zero. It comes from the detection limit, (1 - e_f) T_f: with the
 // control limit it would equal the edge interval at v_min, and the estimate would drop to zero
 // between two edges.
 constexpr std::chrono::microseconds T_VEL{

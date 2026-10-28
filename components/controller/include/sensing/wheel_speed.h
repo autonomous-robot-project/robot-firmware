@@ -21,6 +21,9 @@ class WheelSpeed
             float applied_duty
         );
 
+        // Direction locked for the wheel (ADR 019): +1 forward, -1 backward.
+        [[nodiscard]] float direction() const { return direction_; }
+
     private:
         [[nodiscard]] static float magnitude(
             const std::optional<EncoderEdges> &edges, std::chrono::microseconds now

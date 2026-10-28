@@ -24,6 +24,17 @@ static TickType_t next_deadline(TickType_t deadline, TickType_t period)
     return (behind ? now : deadline) + period;
 }
 
+// True once `period` has passed since `last`, which then moves to now.
+static bool is_due(TickType_t &last, std::chrono::milliseconds period)
+{
+    if (xTaskGetTickCount() - last < to_ticks(period))
+    {
+        return false;
+    }
+    last = xTaskGetTickCount();
+    return true;
+}
+
 Link::Link(Controller &controller) : controller_(controller), transport_(UART_CONFIG)
 {
 }
@@ -65,8 +76,12 @@ void Link::serve(Session &session, const Agent &agent)
 {
     const TickType_t state_period = to_ticks(STATE_PERIOD);
     TickType_t next_publication = xTaskGetTickCount() + state_period;
-    TickType_t last_ping = xTaskGetTickCount();
     TickType_t last_instrumentation = xTaskGetTickCount();
+    TickType_t last_odometry = xTaskGetTickCount();
+    TickType_t last_clock_sync = xTaskGetTickCount();
+    TickType_t last_ping = xTaskGetTickCount();
+    // The odometry waits for the first synchronization (ADR 027).
+    session.synchronize_clock();
     for (;;)
     {
         // Each command reaches the controller as soon as it arrives, so the controller stamps
@@ -75,19 +90,21 @@ void Link::serve(Session &session, const Agent &agent)
         session.publish_state();
         next_publication = next_deadline(next_publication, state_period);
 
-        if (xTaskGetTickCount() - last_instrumentation >= to_ticks(INSTRUMENTATION_PERIOD))
+        if (is_due(last_instrumentation, INSTRUMENTATION_PERIOD))
         {
-            last_instrumentation = xTaskGetTickCount();
             session.publish_instrumentation();
         }
-
-        if (xTaskGetTickCount() - last_ping >= to_ticks(AGENT_PING_PERIOD))
+        if (is_due(last_odometry, ODOMETRY_PERIOD))
         {
-            last_ping = xTaskGetTickCount();
-            if (!agent.is_alive())
-            {
-                return;
-            }
+            session.publish_odometry();
+        }
+        if (is_due(last_clock_sync, CLOCK_SYNC_PERIOD))
+        {
+            session.synchronize_clock();
+        }
+        if (is_due(last_ping, AGENT_PING_PERIOD) && !agent.is_alive())
+        {
+            return;
         }
     }
 }

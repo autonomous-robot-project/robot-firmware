@@ -1,5 +1,10 @@
 #include "message_conversion.h"
 
+#include <cmath>
+#include <cstring>
+
+#include "config.h"
+
 // The controller repeats the fault codes of State.msg, because it does not depend on micro-ROS
 // (ADR 018). The faults mask is copied bit for bit, so the two must agree.
 static_assert(State::FAULT_COGNIZANT == StateMessageFault::COGNIZANT);
@@ -84,4 +89,45 @@ InstrumentationMessage to_message(const Instrumentation &instrumentation)
         .left_wheel_speed = instrumentation.wheel_speeds.left,
         .right_wheel_speed = instrumentation.wheel_speeds.right,
     };
+}
+
+// A rosidl string over a static C string: serialized by reading, never freed.
+static rosidl_runtime_c__String to_string(const char *text)
+{
+    const size_t length = std::strlen(text);
+    return {.data = const_cast<char *>(text), .size = length, .capacity = length + 1};
+}
+
+static builtin_interfaces__msg__Time to_time(int64_t stamp_ns)
+{
+    constexpr int64_t nanoseconds_per_second = 1000000000;
+    return {
+        .sec = static_cast<int32_t>(stamp_ns / nanoseconds_per_second),
+        .nanosec = static_cast<uint32_t>(stamp_ns % nanoseconds_per_second),
+    };
+}
+
+// The heading as a rotation about z: (0, 0, sin(theta/2), cos(theta/2)).
+static geometry_msgs__msg__Quaternion to_quaternion(float heading)
+{
+    return {
+        .x = 0.0,
+        .y = 0.0,
+        .z = std::sin(heading / 2.0),
+        .w = std::cos(heading / 2.0),
+    };
+}
+
+OdometryMessage to_message(const Odometry &odometry, int64_t stamp_ns)
+{
+    OdometryMessage message{};
+    message.header.stamp = to_time(stamp_ns);
+    message.header.frame_id = to_string(ODOMETRY_FRAME);
+    message.child_frame_id = to_string(ODOMETRY_CHILD_FRAME);
+    message.pose.pose.position.x = odometry.pose.x;
+    message.pose.pose.position.y = odometry.pose.y;
+    message.pose.pose.orientation = to_quaternion(odometry.pose.theta);
+    message.twist.twist.linear.x = odometry.twist.linear;
+    message.twist.twist.angular.z = odometry.twist.angular;
+    return message;
 }

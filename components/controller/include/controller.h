@@ -8,12 +8,15 @@
 #include "instrumentation/instrumentation.h"
 #include "channels/latest_value_channel.h"
 #include "control/acceleration_limiter.h"
+#include "control/pose.h"
 #include "control/twist.h"
 #include "control/wheel_pair.h"
 #include "control/wheel_pi.h"
 #include "actuation/motor_driver.h"
+#include "interface/odometry.h"
 #include "interface/state.h"
 #include "sensing/wheel_encoder.h"
+#include "sensing/wheel_odometry.h"
 #include "sensing/wheel_speed.h"
 #include "supervision/watchdog_test_trigger.h"
 #include "supervision/wheel_tracking_monitor.h"
@@ -42,6 +45,9 @@ class Controller
         // Consumer side of the instrumentation channel (ADR 028). Empty before the first cycle.
         [[nodiscard]] std::optional<Instrumentation> latest_instrumentation() const;
 
+        // Consumer side of the odometry channel (ADR 048). Empty before the first cycle.
+        [[nodiscard]] std::optional<Odometry> latest_odometry() const;
+
     private:
         struct StampedCommand
         {
@@ -67,21 +73,28 @@ class Controller
             const std::optional<StampedCommand> &latest, std::chrono::microseconds now
         );
 
-        // The twist that the active behaviour asks for. Only TWIST exists in this slice; TURN_TO
-        // and GO_TO come with V-01 and stop the robot until then.
-        [[nodiscard]] static Twist target_twist(const Command &command);
+        // The twist that the active behaviour asks for (ADR 024). Computed every cycle from the
+        // command in force and the pose, and kept nowhere: it ends with the behaviour (RNF-02).
+        [[nodiscard]] static Twist target_twist(const Command &command, const Pose &pose);
 
         // Faults active at `now`, one bit per code (State::FAULT_*).
-        [[nodiscard]] uint32_t active_faults(
-            std::chrono::microseconds now, bool tracking_lost
-        ) const;
+        [[nodiscard]] uint32_t active_faults(std::chrono::microseconds now, bool tracking_lost)
+            const;
 
-        // Speed of each wheel from its encoder, with the direction of the previous duty (ADR 019).
-        [[nodiscard]] WheelPair measure_wheel_speeds(std::chrono::microseconds now);
+        // The latest edges of both encoders, read once per cycle.
+        [[nodiscard]] WheelEdges read_wheel_edges() const;
+
+        // Speed of each wheel from its edges, with the direction of the previous duty (ADR 019).
+        [[nodiscard]] WheelPair measure_wheel_speeds(
+            const WheelEdges &edges, std::chrono::microseconds now
+        );
+
+        // Integrates the new edges of each wheel into the pose (ADR 048) and returns it.
+        [[nodiscard]] Pose update_odometry(const WheelEdges &edges);
 
         // Speed of each wheel that the active behaviour asks for, after the acceleration limits
         // (ADR 023).
-        [[nodiscard]] WheelPair wheel_references(const Command &command);
+        [[nodiscard]] WheelPair wheel_references(const Command &command, const Pose &pose);
 
         // PI of each wheel and the PWM of its motor.
         void drive_wheels(const WheelPair &references, const WheelPair &measured);
@@ -92,6 +105,12 @@ class Controller
         );
 
         void publish_state(const Command &command, uint32_t faults);
+
+        // Writes the pose and the measured twist, stamped with the release of the cycle (ADR 027).
+        // The edges are read tens of us after t_k, far below the ~51 ms between edges at 0.2 m/s.
+        void publish_odometry(
+            const Pose &pose, const WheelPair &wheel_speeds, std::chrono::microseconds cycle
+        );
 
         // Measures the expiry of the latest command for V-06; never read by the control.
         void record_expiry(
@@ -104,6 +123,7 @@ class Controller
         LatestValueChannel<StampedCommand> commands_;
         LatestValueChannel<State> states_;
         LatestValueChannel<Instrumentation> instrumentation_;
+        LatestValueChannel<Odometry> odometry_;
         ExpiryMeter expiry_meter_;
         DeadlineMeter deadline_meter_;
         MotorDriver left_motor_;
@@ -112,6 +132,7 @@ class Controller
         WheelEncoder right_encoder_;
         WheelSpeed left_speed_;
         WheelSpeed right_speed_;
+        WheelOdometry wheel_odometry_;
         AccelerationLimiter acceleration_limiter_;
         WheelPI left_pi_;
         WheelPI right_pi_;

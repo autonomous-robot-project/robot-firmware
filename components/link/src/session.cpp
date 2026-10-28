@@ -2,6 +2,8 @@
 
 #include <optional>
 
+#include <esp_timer.h>
+
 #include <esp_log.h>
 #include <rmw_microros/rmw_microros.h>
 
@@ -38,7 +40,8 @@ Session::Session(Controller &controller) : controller_(controller)
 {
     // Stops at the first failure; the destructor destroys whatever was created.
     ready_ = create_support() && create_node() && create_command_subscription() &&
-             create_state_publisher() && create_instrumentation_publisher() && create_executor();
+             create_state_publisher() && create_instrumentation_publisher() &&
+             create_odometry_publisher() && create_executor();
 }
 
 Session::~Session()
@@ -52,6 +55,7 @@ Session::~Session()
         );
     }
     destroy_executor();
+    destroy_odometry_publisher();
     destroy_instrumentation_publisher();
     destroy_state_publisher();
     destroy_command_subscription();
@@ -112,6 +116,33 @@ void Session::publish_instrumentation()
     }
 }
 
+void Session::publish_odometry()
+{
+    const std::optional<Odometry> odometry = controller_.latest_odometry();
+    if (!odometry || !rmw_uros_epoch_synchronized())
+    {
+        return;
+    }
+    // The age of the pose, in the local clock, carried over to the clock of the agent.
+    const int64_t age_ns = (esp_timer_get_time() - odometry->instant.count()) * 1000;
+    odometry_message_ = to_message(*odometry, rmw_uros_epoch_nanos() - age_ns);
+    const rcl_ret_t ret = rcl_publish(&odometry_publisher_, &odometry_message_, nullptr);
+    if (ret != RCL_RET_OK)
+    {
+        ESP_LOGD(TAG, "odometry publish failed: %d", static_cast<int>(ret));
+    }
+}
+
+void Session::synchronize_clock()
+{
+    const auto timeout_ms = static_cast<int>(CLOCK_SYNC_TIMEOUT.count());
+    const rmw_ret_t ret = rmw_uros_sync_session(timeout_ms);
+    if (ret != RMW_RET_OK)
+    {
+        ESP_LOGD(TAG, "clock sync failed: %d", static_cast<int>(ret));
+    }
+}
+
 bool Session::create_support()
 {
     const rcl_ret_t ret = rclc_support_init(&support_, 0, nullptr, &allocator_);
@@ -160,6 +191,16 @@ bool Session::create_instrumentation_publisher()
     return instrumentation_publisher_ok_;
 }
 
+bool Session::create_odometry_publisher()
+{
+    const rmw_qos_profile_t qos = link_qos();
+    const rcl_ret_t ret = rclc_publisher_init(
+        &odometry_publisher_, &node_, odometry_type_support(), ODOMETRY_TOPIC, &qos
+    );
+    odometry_publisher_ok_ = succeeded(ret, "odometry publisher init");
+    return odometry_publisher_ok_;
+}
+
 bool Session::create_executor()
 {
     constexpr size_t handles = 1;  // the command subscription
@@ -192,6 +233,15 @@ void Session::destroy_executor()
     {
         [[maybe_unused]] const rcl_ret_t ret = rclc_executor_fini(&executor_);
         ESP_LOGD(TAG, "executor fini: %d", static_cast<int>(ret));
+    }
+}
+
+void Session::destroy_odometry_publisher()
+{
+    if (odometry_publisher_ok_)
+    {
+        [[maybe_unused]] const rcl_ret_t ret = rcl_publisher_fini(&odometry_publisher_, &node_);
+        ESP_LOGD(TAG, "odometry publisher fini: %d", static_cast<int>(ret));
     }
 }
 

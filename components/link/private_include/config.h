@@ -15,7 +15,7 @@ constexpr UartTransport::Config UART_CONFIG = {
     .tx_pin = 41,  // robot-docs hardware/cabeamento.md
     .rx_pin = 40,
     .baud = 921600,
-    .rx_buffer_bytes = 1024,  // above the XRCE-DDS serial MTU (512 B)
+    .rx_buffer_bytes = 2048,  // above the XRCE-DDS MTU (1024 B, app-colcon.meta, ADR 043)
 };
 
 // --- micro-ROS task ---
@@ -33,7 +33,16 @@ constexpr const char *NODE_NAME = "controller";
 constexpr const char *COMMAND_TOPIC = "/controller/command";
 constexpr const char *STATE_TOPIC = "/controller/state";
 constexpr const char *INSTRUMENTATION_TOPIC = "/controller/instrumentation";  // ADR 028
+constexpr const char *ODOMETRY_TOPIC = "/controller/odometry";  // ADR 048
+constexpr const char *ODOMETRY_FRAME = "odom";
+constexpr const char *ODOMETRY_CHILD_FRAME = "base_link";
 
 // --- Exchange with the controller ---
 constexpr std::chrono::milliseconds STATE_PERIOD{10};             // 100 Hz = 1/T_C (ADR 025)
 constexpr std::chrono::milliseconds INSTRUMENTATION_PERIOD{100};  // 10 Hz (ADR 025)
+constexpr std::chrono::milliseconds ODOMETRY_PERIOD{50};          // 20 Hz (ADR 025)
+
+// --- Clock synchronization with the agent (ADR 027) ---
+constexpr std::chrono::milliseconds CLOCK_SYNC_TIMEOUT{100};
+// Provisional, until the drift between the clocks is measured (V-04, robot-docs#35).
+constexpr std::chrono::milliseconds CLOCK_SYNC_PERIOD{10000};
