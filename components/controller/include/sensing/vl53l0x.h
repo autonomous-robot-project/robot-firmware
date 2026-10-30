@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -23,6 +24,15 @@ class VL53L0X
                 gpio_num_t scl;
         };
 
+        // One ranging: the distance and the device range status of the ST API (bits 6 to 3 of
+        // RESULT_RANGE_STATUS), kept raw; robot-docs nota 0015 classifies them.
+        struct Measurement
+        {
+            public:
+                uint16_t distance_mm;
+                uint8_t device_status;
+        };
+
         explicit VL53L0X(const Wiring &wiring);
         VL53L0X(const VL53L0X &) = delete;
         VL53L0X &operator=(const VL53L0X &) = delete;
@@ -34,6 +44,14 @@ class VL53L0X
         // static init (reference SPADs and the ST tuning) and reference calibration. Blocks the
         // caller between polls, for tens of ms. Also the recovery after N_I2C failures (D4).
         esp_err_t initialize();
+
+        // Starts the continuous back-to-back mode with the timing budget T_BUDGET_VLX: the sensor
+        // ranges again as soon as it ends (robot-docs nota 0015).
+        esp_err_t start_continuous();
+
+        // Waits, polling every T_POLL for at most T_WAIT, for the next ranging of the continuous
+        // mode, reads it and clears its interrupt.
+        esp_err_t read_measurement(Measurement &measurement);
 
         // Releases a slave that holds SDA low, with clock pulses on SCL (robot-docs nota 0015).
         esp_err_t reset_bus();
@@ -62,6 +80,7 @@ class VL53L0X
         esp_err_t configure_interrupt();
         esp_err_t reference_calibration();
         esp_err_t single_reference_calibration(uint8_t vhv_init);
+        esp_err_t set_timing_budget(std::chrono::microseconds budget);
         esp_err_t enter_private_page();
         esp_err_t leave_private_page();
         esp_err_t load_tuning_settings();

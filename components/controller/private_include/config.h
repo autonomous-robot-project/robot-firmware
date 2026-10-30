@@ -49,3 +49,6 @@ constexpr std::chrono::milliseconds T_I2C{10};
 constexpr std::chrono::milliseconds T_POLL{2};
 // T_WAIT: longest wait for the sensor, as in the Pololu examples; above one ranging (~33 ms).
 constexpr std::chrono::milliseconds T_WAIT{500};
+// T_BUDGET_VLX: timing budget of one ranging, the ~33 ms default of the ST API (robot-docs nota
+// 0015).
+constexpr std::chrono::microseconds T_BUDGET_VLX{33000};

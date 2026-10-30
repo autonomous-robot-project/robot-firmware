@@ -11,6 +11,8 @@
 
 #include "config.h"
 
+using std::chrono::microseconds;
+
 static constexpr int TIMEOUT_MS = static_cast<int>(T_I2C.count());
 static constexpr uint8_t GLITCH_FILTER_CYCLES = 7;  // the default of the IDF examples
 // Longest block written: the 6 bytes of the reference SPAD map, after the register address.
@@ -33,6 +35,12 @@ static constexpr uint8_t VHV_CONFIG_PAD_SCL_SDA_EXTSUP_HV = 0x89;
 static constexpr uint8_t GLOBAL_CONFIG_SPAD_ENABLES_REF_0 = 0xB0;
 static constexpr uint8_t GLOBAL_CONFIG_REF_EN_START_SELECT = 0xB6;
 static constexpr uint8_t IDENTIFICATION_MODEL_ID = 0xC0;
+static constexpr uint8_t RESULT_RANGE_STATUS = 0x14;
+static constexpr uint8_t MSRC_CONFIG_TIMEOUT_MACROP = 0x46;
+static constexpr uint8_t PRE_RANGE_CONFIG_VCSEL_PERIOD = 0x50;
+static constexpr uint8_t PRE_RANGE_CONFIG_TIMEOUT_MACROP_HI = 0x51;
+static constexpr uint8_t FINAL_RANGE_CONFIG_VCSEL_PERIOD = 0x70;
+static constexpr uint8_t FINAL_RANGE_CONFIG_TIMEOUT_MACROP_HI = 0x71;
 
 // Values of the ST API and the datasheet.
 static constexpr uint8_t MODEL_ID = 0xEE;
@@ -54,6 +62,23 @@ static constexpr uint8_t NEW_SAMPLE_READY = 0x04;
 static constexpr uint8_t INTERRUPT_ACTIVE_HIGH = 0x10;
 static constexpr uint8_t INTERRUPT_PENDING = 0x07;
 static constexpr uint8_t CLEAR_INTERRUPT = 0x01;
+static constexpr uint8_t START_BACK_TO_BACK = 0x02;
+
+// Ranging result: 12 registers from RESULT_RANGE_STATUS, read in one transaction as the ST API
+// does. The device range status is in bits 6 to 3 of the first; the distance, in the 11th and
+// 12th.
+static constexpr size_t RESULT_BYTES = 12;
+static constexpr uint8_t DEVICE_STATUS_MASK = 0x78;
+static constexpr int DEVICE_STATUS_SHIFT = 3;
+static constexpr size_t DISTANCE_HIGH_BYTE = 10;
+static constexpr size_t DISTANCE_LOW_BYTE = 11;
+
+// Overheads of the steps of a ranging (ST API, VL53L0X_set_measurement_timing_budget).
+static constexpr microseconds START_OVERHEAD{1910};
+static constexpr microseconds END_OVERHEAD{960};
+static constexpr microseconds DSS_OVERHEAD{690};
+static constexpr microseconds PRE_RANGE_OVERHEAD{660};
+static constexpr microseconds FINAL_RANGE_OVERHEAD{550};
 
 // Reference SPAD map: 48 SPADs, the aperture ones from the 12th (ST API).
 static constexpr size_t SPAD_MAP_BYTES = 6;
@@ -68,6 +93,56 @@ static constexpr int MAX_POLLS = static_cast<int>(T_WAIT / T_POLL);
 
 static constexpr uint8_t STOP_VARIABLE = 0x91;
 static constexpr uint8_t I2C_STANDARD_MODE = 0x88;
+
+// Timeout arithmetic of the ST API (vl53l0x_api_core.c), as ported by Pololu.
+
+// VCSEL pulse period in PCLKs from its register: (value + 1) * 2.
+static uint8_t decode_vcsel_period(uint8_t value)
+{
+    return static_cast<uint8_t>((value + 1) << 1);
+}
+
+// Macro period in ns for a VCSEL period in PCLKs: 2304 PLL periods of 1.655 ns each.
+static uint32_t macro_period_ns(uint8_t vcsel_period_pclks)
+{
+    constexpr uint32_t PLL_PERIODS = 2304;
+    constexpr uint32_t PLL_PERIOD_PS = 1655;
+    return ((PLL_PERIODS * vcsel_period_pclks * PLL_PERIOD_PS) + 500) / 1000;
+}
+
+static microseconds mclks_to_us(uint32_t mclks, uint8_t vcsel_period_pclks)
+{
+    return microseconds{((mclks * macro_period_ns(vcsel_period_pclks)) + 500) / 1000};
+}
+
+static uint32_t us_to_mclks(microseconds duration, uint8_t vcsel_period_pclks)
+{
+    const uint32_t period_ns = macro_period_ns(vcsel_period_pclks);
+    const auto duration_ns = static_cast<uint32_t>(duration.count() * 1000);
+    return (duration_ns + (period_ns / 2)) / period_ns;
+}
+
+// Timeout register format: (LSByte * 2^MSByte) + 1 MCLKs.
+static uint32_t decode_timeout(uint16_t value)
+{
+    return (static_cast<uint32_t>(value & 0xFF) << (value >> 8)) + 1;
+}
+
+static uint16_t encode_timeout(uint32_t mclks)
+{
+    if (mclks == 0)
+    {
+        return 0;
+    }
+    uint32_t mantissa = mclks - 1;
+    uint16_t exponent = 0;
+    while ((mantissa & 0xFFFFFF00) != 0)
+    {
+        mantissa >>= 1;
+        ++exponent;
+    }
+    return static_cast<uint16_t>((exponent << 8) | (mantissa & 0xFF));
+}
 
 VL53L0X::VL53L0X(const Wiring &wiring) : wiring_(wiring)
 {
@@ -98,6 +173,30 @@ void VL53L0X::start()
     };
     const esp_err_t device_added = i2c_master_bus_add_device(bus_, &device_config, &device_);
     ESP_ERROR_CHECK(device_added);
+}
+
+esp_err_t VL53L0X::start_continuous()
+{
+    ESP_RETURN_ON_ERROR(enter_private_page(), TAG, "enter page");
+    ESP_RETURN_ON_ERROR(write_register(STOP_VARIABLE, stop_variable_), TAG, "stop variable");
+    ESP_RETURN_ON_ERROR(leave_private_page(), TAG, "leave page");
+    return write_register(SYSRANGE_START, START_BACK_TO_BACK);
+}
+
+esp_err_t VL53L0X::read_measurement(Measurement &measurement)
+{
+    ESP_RETURN_ON_ERROR(wait_until_set(RESULT_INTERRUPT_STATUS, INTERRUPT_PENDING), TAG, "wait");
+
+    std::array<uint8_t, RESULT_BYTES> result{};
+    ESP_RETURN_ON_ERROR(
+        read_block(RESULT_RANGE_STATUS, result.data(), result.size()), TAG, "read"
+    );
+    measurement.device_status = (result[0] & DEVICE_STATUS_MASK) >> DEVICE_STATUS_SHIFT;
+    measurement.distance_mm = static_cast<uint16_t>(
+        (result[DISTANCE_HIGH_BYTE] << 8) | result[DISTANCE_LOW_BYTE]
+    );
+
+    return write_register(SYSTEM_INTERRUPT_CLEAR, CLEAR_INTERRUPT);
 }
 
 esp_err_t VL53L0X::reset_bus()
@@ -147,7 +246,10 @@ esp_err_t VL53L0X::static_init()
     ESP_RETURN_ON_ERROR(set_reference_spads(spads), TAG, "reference spads");
     ESP_RETURN_ON_ERROR(load_tuning_settings(), TAG, "tuning settings");
     ESP_RETURN_ON_ERROR(configure_interrupt(), TAG, "interrupt");
-    return write_register(SYSTEM_SEQUENCE_CONFIG, RANGING_SEQUENCE_STEPS);
+    ESP_RETURN_ON_ERROR(
+        write_register(SYSTEM_SEQUENCE_CONFIG, RANGING_SEQUENCE_STEPS), TAG, "sequence"
+    );
+    return set_timing_budget(T_BUDGET_VLX);
 }
 
 esp_err_t VL53L0X::read_spad_info(SpadInfo &info)
@@ -249,6 +351,44 @@ esp_err_t VL53L0X::single_reference_calibration(uint8_t vhv_init)
     ESP_RETURN_ON_ERROR(wait_until_set(RESULT_INTERRUPT_STATUS, INTERRUPT_PENDING), TAG, "wait");
     ESP_RETURN_ON_ERROR(write_register(SYSTEM_INTERRUPT_CLEAR, CLEAR_INTERRUPT), TAG, "clear");
     return write_register(SYSRANGE_START, STOP_RANGING);
+}
+
+// The final range gets what the budget leaves after the other steps (ST API
+// VL53L0X_set_measurement_timing_budget). Lean port: only the steps of RANGING_SEQUENCE_STEPS,
+// DSS, pre-range and final range; MSRC and TCC are off.
+esp_err_t VL53L0X::set_timing_budget(std::chrono::microseconds budget)
+{
+    uint8_t pre_range_vcsel = 0;
+    uint8_t final_range_vcsel = 0;
+    uint8_t dss_timeout = 0;
+    uint16_t pre_range_timeout = 0;
+    ESP_RETURN_ON_ERROR(read_register(PRE_RANGE_CONFIG_VCSEL_PERIOD, pre_range_vcsel), TAG, "pre");
+    ESP_RETURN_ON_ERROR(
+        read_register(FINAL_RANGE_CONFIG_VCSEL_PERIOD, final_range_vcsel), TAG, "final"
+    );
+    ESP_RETURN_ON_ERROR(read_register(MSRC_CONFIG_TIMEOUT_MACROP, dss_timeout), TAG, "dss");
+    ESP_RETURN_ON_ERROR(
+        read_register_16(PRE_RANGE_CONFIG_TIMEOUT_MACROP_HI, pre_range_timeout), TAG, "pre range"
+    );
+
+    const uint8_t pre_range_pclks = decode_vcsel_period(pre_range_vcsel);
+    const uint8_t final_range_pclks = decode_vcsel_period(final_range_vcsel);
+    const microseconds dss = mclks_to_us(dss_timeout + 1, pre_range_pclks);
+    const uint32_t pre_range_mclks = decode_timeout(pre_range_timeout);
+    const microseconds pre_range = mclks_to_us(pre_range_mclks, pre_range_pclks);
+
+    const microseconds used = START_OVERHEAD + END_OVERHEAD + 2 * (dss + DSS_OVERHEAD) +
+                              pre_range + PRE_RANGE_OVERHEAD + FINAL_RANGE_OVERHEAD;
+    ESP_RETURN_ON_FALSE(
+        used < budget, ESP_ERR_INVALID_ARG, TAG, "budget below %lld us", used.count()
+    );
+
+    // The final range timeout counts from the start of the pre-range.
+    const uint32_t final_range_mclks = us_to_mclks(budget - used, final_range_pclks) +
+                                       pre_range_mclks;
+    return write_register_16(
+        FINAL_RANGE_CONFIG_TIMEOUT_MACROP_HI, encode_timeout(final_range_mclks)
+    );
 }
 
 // Undocumented sequences of the ST API, as ported by Pololu. Register 0xFF selects the page.
