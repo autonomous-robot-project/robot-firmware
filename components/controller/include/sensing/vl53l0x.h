@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 #include <driver/gpio.h>
 #include <driver/i2c_master.h>
@@ -29,10 +30,48 @@ class VL53L0X
         // Creates the I2C bus and the device. Called once, at boot, by the task that reads it.
         void start();
 
+        // Brings the sensor from reset to ready for ranging, as the Pololu init(): data init,
+        // static init (reference SPADs and the ST tuning) and reference calibration. Blocks the
+        // caller between polls, for tens of ms. Also the recovery after N_I2C failures (D4).
+        esp_err_t initialize();
+
         // Releases a slave that holds SDA low, with clock pulses on SCL (robot-docs nota 0015).
         esp_err_t reset_bus();
 
     private:
+        struct RegisterWrite
+        {
+            public:
+                uint8_t reg;
+                uint8_t value;
+        };
+
+        // Reference SPADs (single photon avalanche diodes) stored in the sensor at the factory.
+        struct SpadInfo
+        {
+            public:
+                uint8_t count;
+                bool is_aperture;
+        };
+
+        // The phases of initialize(), named after the ST API functions they port.
+        esp_err_t data_init();
+        esp_err_t static_init();
+        esp_err_t read_spad_info(SpadInfo &info);
+        esp_err_t set_reference_spads(const SpadInfo &info);
+        esp_err_t configure_interrupt();
+        esp_err_t reference_calibration();
+        esp_err_t single_reference_calibration(uint8_t vhv_init);
+        esp_err_t enter_private_page();
+        esp_err_t leave_private_page();
+        esp_err_t load_tuning_settings();
+
+        // Polls `reg` every T_POLL until a bit of `mask` is set, for at most T_WAIT.
+        esp_err_t wait_until_set(uint8_t reg, uint8_t mask);
+
+        esp_err_t write_registers(std::span<const RegisterWrite> writes);
+        esp_err_t set_bits(uint8_t reg, uint8_t mask);
+        esp_err_t clear_bits(uint8_t reg, uint8_t mask);
         esp_err_t write_register(uint8_t reg, uint8_t value);
         esp_err_t write_register_16(uint8_t reg, uint16_t value);
         esp_err_t read_register(uint8_t reg, uint8_t &value);
@@ -45,4 +84,6 @@ class VL53L0X
         Wiring wiring_;
         i2c_master_bus_handle_t bus_ = nullptr;
         i2c_master_dev_handle_t device_ = nullptr;
+        // Read in the data init and written back to start each ranging (ST API).
+        uint8_t stop_variable_ = 0;
 };

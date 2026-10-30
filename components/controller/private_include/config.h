@@ -44,3 +44,8 @@ constexpr uint16_t VL53L0X_ADDRESS = 0x29;     // 7-bit address after reset (dat
 constexpr uint32_t I2C_FREQUENCY_HZ = 400000;  // fast mode, the maximum of the VL53L0X (datasheet)
 // T_I2C: timeout of one transaction. The longest one, 12 bytes at 400 kHz, takes ~0.3 ms.
 constexpr std::chrono::milliseconds T_I2C{10};
+// T_POLL: period of the polls of the sensor status, the task blocked in between (GPIO1 is not
+// wired). It delays the stamp of a measurement by at most T_POLL, against the ~33 ms between them.
+constexpr std::chrono::milliseconds T_POLL{2};
+// T_WAIT: longest wait for the sensor, as in the Pololu examples; above one ranging (~33 ms).
+constexpr std::chrono::milliseconds T_WAIT{500};
