@@ -38,3 +38,9 @@ constexpr std::chrono::seconds WATCHDOG_FAULT_DURATION{10};
 // at v_max (s / (2 v_max) = 10 ms at 0.5 m/s).
 constexpr std::chrono::microseconds ENCODER_SAMPLE_PERIOD{500};
 constexpr int ENCODER_STABLE_SAMPLES = 4;
+
+// --- Front range sensor: VL53L0X on I2C (ADR 020, robot-docs nota 0015; pins in pins.h) ---
+constexpr uint16_t VL53L0X_ADDRESS = 0x29;     // 7-bit address after reset (datasheet)
+constexpr uint32_t I2C_FREQUENCY_HZ = 400000;  // fast mode, the maximum of the VL53L0X (datasheet)
+// T_I2C: timeout of one transaction. The longest one, 12 bytes at 400 kHz, takes ~0.3 ms.
+constexpr std::chrono::milliseconds T_I2C{10};
