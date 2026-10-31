@@ -24,6 +24,9 @@ build test_deadline_meter.cpp "$CONTROLLER/src/instrumentation/deadline_meter.cp
     -o "$BUILD/test_deadline_meter"
 build test_front_range_classifier.cpp "$CONTROLLER/src/sensing/front_range_classifier.cpp" \
     -o "$BUILD/test_front_range_classifier"
+build test_sequencer_response_meter.cpp \
+    "$CONTROLLER/src/instrumentation/sequencer_response_meter.cpp" \
+    -o "$BUILD/test_sequencer_response_meter"
 
 echo "== WheelPI"
 "$BUILD/test_wheel_pi"
@@ -37,3 +40,5 @@ echo "== DeadlineMeter"
 "$BUILD/test_deadline_meter"
 echo "== FrontRangeClassifier"
 "$BUILD/test_front_range_classifier"
+echo "== SequencerResponseMeter"
+"$BUILD/test_sequencer_response_meter"

@@ -98,3 +98,8 @@ constexpr std::chrono::milliseconds T_S{100};
 // target: 8x the largest false target, ~50x below the screen of V-03 (robot-docs#48 measures it
 // again with the sensor mounted).
 constexpr float S_MIN_VLX = 0.02f;
+
+// --- Test events of the sequencer response (ADR 049, V-07) ---
+// T_ev: interval between test events, drawn uniformly at each event.
+constexpr std::chrono::milliseconds T_EV_MIN{500};
+constexpr std::chrono::milliseconds T_EV_MAX{1500};
