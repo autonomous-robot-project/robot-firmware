@@ -5,7 +5,7 @@
 
 #include "control_config.h"
 
-void DeadlineMeter::record(
+bool DeadlineMeter::record(
     std::chrono::microseconds release,
     std::chrono::microseconds start,
     std::chrono::microseconds end
@@ -26,4 +26,5 @@ void DeadlineMeter::record(
     {
         measurements_.deadline_misses++;
     }
+    return deadline_missed;
 }

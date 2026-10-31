@@ -20,6 +20,7 @@
 #include "sensing/wheel_encoder.h"
 #include "sensing/wheel_odometry.h"
 #include "sensing/wheel_speed.h"
+#include "supervision/deadline_miss_fault.h"
 #include "supervision/watchdog_test_trigger.h"
 #include "supervision/wheel_tracking_monitor.h"
 #include "supervision/task_watchdog.h"
@@ -143,6 +144,7 @@ class Controller
         LatestValueChannel<Odometry> odometry_;
         ExpiryMeter expiry_meter_;
         DeadlineMeter deadline_meter_;
+        DeadlineMissFault deadline_miss_fault_;
         MotorDriver left_motor_;
         MotorDriver right_motor_;
         // Producer of the front range channel; read by the reflex (ADR 021).

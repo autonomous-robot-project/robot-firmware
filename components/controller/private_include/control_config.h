@@ -99,6 +99,11 @@ constexpr std::chrono::milliseconds T_S{100};
 // again with the sensor mounted).
 constexpr float S_MIN_VLX = 0.02f;
 
+// --- Deadline-missed fault (ADR 028) ---
+// Active this long after the last missed deadline: twice the 100 ms (10 States at 100 Hz) that an
+// ephemeral code needs to reach the sequencer through best effort (ADR 037).
+constexpr std::chrono::milliseconds DEADLINE_FAULT_DURATION{200};
+
 // --- Test events of the sequencer response (ADR 049, V-07) ---
 // T_ev: interval between test events, drawn uniformly at each event.
 constexpr std::chrono::milliseconds T_EV_MIN{500};

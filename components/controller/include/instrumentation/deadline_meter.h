@@ -19,8 +19,9 @@ class DeadlineMeter
                 uint32_t deadline_misses = 0;        // cycles that ended after t_k + T_C
         };
 
-        // Called once per cycle with its nominal release t_k, its start and its end.
-        void record(
+        // Called once per cycle with its nominal release t_k, its start and its end. Returns true
+        // if the cycle missed its deadline, for the deadline-missed fault (ADR 028).
+        [[nodiscard]] bool record(
             std::chrono::microseconds release,
             std::chrono::microseconds start,
             std::chrono::microseconds end

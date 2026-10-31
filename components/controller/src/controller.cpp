@@ -133,9 +133,14 @@ void Controller::control_cycle(std::chrono::microseconds release)
     watchdog_.feed();
 
     // Last step, so C and R cover the whole cycle, the instrumentation included; this cycle
-    // reaches the instrumentation in the next one, which is enough for values accumulated since
-    // boot (V-05).
-    deadline_meter_.record(release, start, now());
+    // reaches the instrumentation and the State in the next one, which is enough for values
+    // accumulated since boot (V-05) and for a code that lasts 200 ms (ADR 028).
+    const std::chrono::microseconds end = now();
+    const bool deadline_missed = deadline_meter_.record(release, start, end);
+    if (deadline_missed)
+    {
+        deadline_miss_fault_.record_miss(end);
+    }
 }
 
 WheelEdges Controller::read_wheel_edges() const
@@ -254,6 +259,11 @@ uint32_t Controller::active_faults(
     if (watchdog_restart_recent)
     {
         faults |= State::FAULT_WATCHDOG_RESTART;
+    }
+
+    if (deadline_miss_fault_.active(now))
+    {
+        faults |= State::FAULT_DEADLINE_MISSED;
     }
 
     if (front_condition == FrontCondition::FAILURE)
