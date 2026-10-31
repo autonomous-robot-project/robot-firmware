@@ -1,5 +1,7 @@
 #include "controller.h"
 
+#include <algorithm>
+
 #include <driver/gpio.h>
 #include <esp_err.h>
 #include <esp_timer.h>
@@ -108,16 +110,21 @@ void Controller::control_cycle(std::chrono::microseconds release)
     const std::optional<StampedCommand> latest = commands_.read();
     // Decided once per cycle: every step below uses this copy, already expired if too old.
     const Command command = command_in_force(latest, release);
+    const std::optional<FrontRange> range = front_range_reader_.latest_range();
+    const FrontCondition front = front_range_classifier_.classify(range, release);
 
     const WheelEdges edges = read_wheel_edges();
     const WheelPair measured = measure_wheel_speeds(edges, release);
     const Pose pose = update_odometry(edges);
-    const WheelPair references = wheel_references(command, pose);
+    const Twist target = restrict_by_reflexes(target_twist(command, pose), front);
+    const WheelPair references = wheel_references(target);
     drive_wheels(references, measured);
 
     const bool wheels_lost_tracking = tracking_lost(references, measured, release);
-    publish_state(command, active_faults(release, wheels_lost_tracking));
+    publish_state(command, release, wheels_lost_tracking, front);
     publish_odometry(pose, measured, release);
+
+    // Instrumentation logic
     record_expiry(latest, release);
     publish_instrumentation(measured);
 
@@ -158,9 +165,8 @@ Pose Controller::update_odometry(const WheelEdges &edges)
     return wheel_odometry_.pose();
 }
 
-WheelPair Controller::wheel_references(const Command &command, const Pose &pose)
+WheelPair Controller::wheel_references(const Twist &target)
 {
-    const Twist target = target_twist(command, pose);
     const Twist reference = acceleration_limiter_.limit(target);
 
     return inverse_kinematics(reference);
@@ -189,10 +195,13 @@ bool Controller::tracking_lost(
     return left_lost || right_lost;
 }
 
-void Controller::publish_state(const Command &command, uint32_t faults)
+void Controller::publish_state(
+    const Command &command, std::chrono::microseconds now, bool tracking_lost, FrontCondition front
+)
 {
     State state;
-    state.faults = faults;
+    state.faults = active_faults(now, tracking_lost, front);
+    state.reflexes = active_reflexes(front);
     state.echo = command;
     states_.write(state);
 }
@@ -223,7 +232,9 @@ Twist Controller::target_twist(const Command &command, const Pose &pose)
     return Twist{};  // unreachable: every behaviour is handled above
 }
 
-uint32_t Controller::active_faults(std::chrono::microseconds now, bool tracking_lost) const
+uint32_t Controller::active_faults(
+    std::chrono::microseconds now, bool tracking_lost, FrontCondition front
+) const
 {
     uint32_t faults = 0;
 
@@ -240,7 +251,29 @@ uint32_t Controller::active_faults(std::chrono::microseconds now, bool tracking_
         faults |= State::FAULT_WATCHDOG_RESTART;
     }
 
+    if (front == FrontCondition::FAILURE)
+    {
+        faults |= State::FAULT_FRONT_SENSOR;
+    }
+
     return faults;
+}
+
+uint32_t Controller::active_reflexes(FrontCondition front)
+{
+    return front == FrontCondition::OBSTACLE ? State::REFLEX_FRONT_OBSTACLE : 0;
+}
+
+Twist Controller::restrict_by_reflexes(const Twist &target, FrontCondition front)
+{
+    // A failed sensor restricts as an obstacle does. The sensor covers only the path ahead, so
+    // turning and reversing stay allowed (ADR 021).
+    if (front == FrontCondition::CLEAR)
+    {
+        return target;
+    }
+
+    return {.linear = std::min(target.linear, 0.0f), .angular = target.angular};
 }
 
 Command Controller::command_in_force(

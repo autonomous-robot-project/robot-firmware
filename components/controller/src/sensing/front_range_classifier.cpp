@@ -33,7 +33,7 @@ static std::optional<FrontCondition> condition_of(const FrontRange &range)
         return FrontCondition::CLEAR;
     }
 
-    const bool below_d_stop = range.distance_mm / MM_PER_M < D_STOP;
+    const bool below_d_stop = static_cast<float>(range.distance_mm) / MM_PER_M < D_STOP;
     return below_d_stop ? FrontCondition::OBSTACLE : FrontCondition::CLEAR;
 }
 

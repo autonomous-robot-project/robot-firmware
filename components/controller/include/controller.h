@@ -15,6 +15,7 @@
 #include "actuation/motor_driver.h"
 #include "interface/odometry.h"
 #include "interface/state.h"
+#include "sensing/front_range_classifier.h"
 #include "sensing/front_range_reader.h"
 #include "sensing/wheel_encoder.h"
 #include "sensing/wheel_odometry.h"
@@ -80,8 +81,15 @@ class Controller
         [[nodiscard]] static Twist target_twist(const Command &command, const Pose &pose);
 
         // Faults active at `now`, one bit per code (State::FAULT_*).
-        [[nodiscard]] uint32_t active_faults(std::chrono::microseconds now, bool tracking_lost)
-            const;
+        [[nodiscard]] uint32_t active_faults(
+            std::chrono::microseconds now, bool tracking_lost, FrontCondition front
+        ) const;
+
+        // Reflexes active this cycle, one bit per code (State::REFLEX_*).
+        [[nodiscard]] static uint32_t active_reflexes(FrontCondition front);
+
+        // The target without forward motion while the path ahead is not clear (ADR 021).
+        [[nodiscard]] static Twist restrict_by_reflexes(const Twist &target, FrontCondition front);
 
         // The latest edges of both encoders, read once per cycle.
         [[nodiscard]] WheelEdges read_wheel_edges() const;
@@ -94,9 +102,8 @@ class Controller
         // Integrates the new edges of each wheel into the pose (ADR 048) and returns it.
         [[nodiscard]] Pose update_odometry(const WheelEdges &edges);
 
-        // Speed of each wheel that the active behaviour asks for, after the acceleration limits
-        // (ADR 023).
-        [[nodiscard]] WheelPair wheel_references(const Command &command, const Pose &pose);
+        // Speed of each wheel for the target twist, after the acceleration limits (ADR 023).
+        [[nodiscard]] WheelPair wheel_references(const Twist &target);
 
         // PI of each wheel and the PWM of its motor.
         void drive_wheels(const WheelPair &references, const WheelPair &measured);
@@ -106,7 +113,13 @@ class Controller
             const WheelPair &references, const WheelPair &measured, std::chrono::microseconds now
         );
 
-        void publish_state(const Command &command, uint32_t faults);
+        // Writes the command in force with the faults and reflexes active at `now`.
+        void publish_state(
+            const Command &command,
+            std::chrono::microseconds now,
+            bool tracking_lost,
+            FrontCondition front
+        );
 
         // Writes the pose and the measured twist, stamped with the release of the cycle (ADR 027).
         // The edges are read tens of us after t_k, far below the ~51 ms between edges at 0.2 m/s.
@@ -132,6 +145,7 @@ class Controller
         MotorDriver right_motor_;
         // Producer of the front range channel; read by the reflex (ADR 021).
         FrontRangeReader front_range_reader_;
+        FrontRangeClassifier front_range_classifier_;
         WheelEncoder left_encoder_;
         WheelEncoder right_encoder_;
         WheelSpeed left_speed_;

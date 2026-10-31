@@ -24,6 +24,8 @@ struct FrontRange
             {
                 return 0.0f;
             }
-            return (signal_rate_q9_7 * signal_rate_scale) / (effective_spads_q8_8 * spads_scale);
+            const float signal_rate = static_cast<float>(signal_rate_q9_7) * signal_rate_scale;
+            const float spads = static_cast<float>(effective_spads_q8_8) * spads_scale;
+            return signal_rate / spads;
         }
 };
