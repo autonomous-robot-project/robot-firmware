@@ -4,6 +4,7 @@
 
 #include <driver/gpio.h>
 #include <esp_err.h>
+#include <esp_random.h>
 #include <esp_timer.h>
 #include <freertos/task.h>
 
@@ -35,6 +36,7 @@ void Controller::start()
     watchdog_.start();
     restarted_by_watchdog_ = TaskWatchdog::caused_last_restart();
     watchdog_test_trigger_.start();
+    response_test_trigger_.start();
 
     // One interrupt service for all GPIO interrupts, on the calling core (core 0).
     constexpr int default_flags = 0;
@@ -123,6 +125,9 @@ void Controller::control_cycle(std::chrono::microseconds release)
     drive_wheels(references, measured);
 
     const bool wheels_lost_tracking = tracking_lost(references, measured, release);
+    // Before the State, so that the test code appears in the State of the cycle whose t_k starts
+    // the response (ADR 049).
+    record_test_event(latest, release);
     publish_state(command, release, wheels_lost_tracking, front_condition);
     publish_odometry(pose, measured, release);
 
@@ -271,6 +276,11 @@ uint32_t Controller::active_faults(
         faults |= State::FAULT_FRONT_SENSOR;
     }
 
+    if (sequencer_response_meter_.event_active())
+    {
+        faults |= State::FAULT_TEST;
+    }
+
     return faults;
 }
 
@@ -320,11 +330,29 @@ void Controller::record_expiry(
     }
 }
 
+void Controller::record_test_event(
+    const std::optional<StampedCommand> &latest, std::chrono::microseconds cycle
+)
+{
+    // The arrival of the latest command, received or not in this cycle; the meter ignores a
+    // TWIST(0, 0) that arrived before the event.
+    std::optional<std::chrono::microseconds> stop_arrival;
+    const bool latest_is_stop = latest && latest->command.is_stop();
+    if (latest_is_stop)
+    {
+        stop_arrival = latest->arrival;
+    }
+    sequencer_response_meter_.record(
+        cycle, response_test_trigger_.requested(), stop_arrival, esp_random()
+    );
+}
+
 void Controller::publish_instrumentation(const WheelPair &wheel_speeds)
 {
     instrumentation_.write({
         .expiry = expiry_meter_.measurements(),
         .deadlines = deadline_meter_.measurements(),
+        .sequencer_response = sequencer_response_meter_.measurements(),
         .wheel_speeds = wheel_speeds,
     });
 }

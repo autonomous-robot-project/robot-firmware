@@ -24,6 +24,7 @@ constexpr gpio_num_t LEFT_ENCODER_PIN = GPIO_NUM_14;
 constexpr gpio_num_t RIGHT_ENCODER_PIN = GPIO_NUM_21;
 
 constexpr gpio_num_t WATCHDOG_TEST_PIN = GPIO_NUM_11;  // V-02
+constexpr gpio_num_t RESPONSE_TEST_PIN = GPIO_NUM_12;  // V-07 (ADR 049)
 
 // VL53L0X on I2C (ADR 020); XSHUT and GPIO1 are not wired.
 constexpr gpio_num_t FRONT_RANGE_SDA_PIN = GPIO_NUM_39;

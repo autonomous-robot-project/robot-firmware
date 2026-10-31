@@ -24,4 +24,10 @@ struct Command
 
         // TWIST(0, 0): the command in force after expiry (RNF-02).
         static constexpr Command stop() { return Command{}; }
+
+        // True for TWIST(0, 0), whatever the unused fields hold.
+        [[nodiscard]] constexpr bool is_stop() const
+        {
+            return behavior == Behavior::TWIST && linear == 0.0f && angular == 0.0f;
+        }
 };

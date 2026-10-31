@@ -6,6 +6,7 @@
 #include "interface/command.h"
 #include "instrumentation/expiry_meter.h"
 #include "instrumentation/instrumentation.h"
+#include "instrumentation/sequencer_response_meter.h"
 #include "channels/latest_value_channel.h"
 #include "control/acceleration_limiter.h"
 #include "control/pose.h"
@@ -21,6 +22,7 @@
 #include "sensing/wheel_odometry.h"
 #include "sensing/wheel_speed.h"
 #include "supervision/deadline_miss_fault.h"
+#include "supervision/response_test_trigger.h"
 #include "supervision/watchdog_test_trigger.h"
 #include "supervision/wheel_tracking_monitor.h"
 #include "supervision/task_watchdog.h"
@@ -34,8 +36,8 @@ class Controller
         Controller(const Controller &) = delete;
         Controller &operator=(const Controller &) = delete;
 
-        // Starts the watchdog, the watchdog test trigger, the encoders and the motor drivers, with
-        // the wheels free, then the sensor task and the control task. Called once, at boot, on
+        // Starts the watchdog, the test triggers, the encoders and the motor drivers, with the
+        // wheels free, then the sensor task and the control task. Called once, at boot, on
         // core 0.
         void start();
 
@@ -135,6 +137,12 @@ class Controller
             const std::optional<StampedCommand> &latest, std::chrono::microseconds cycle
         );
 
+        // Generates the test events of V-07 and measures the response of the sequencer
+        // (ADR 049); never read by the control.
+        void record_test_event(
+            const std::optional<StampedCommand> &latest, std::chrono::microseconds cycle
+        );
+
         // Writes the measurements of the meters for the verifications (ADR 028).
         void publish_instrumentation(const WheelPair &wheel_speeds);
 
@@ -145,6 +153,7 @@ class Controller
         ExpiryMeter expiry_meter_;
         DeadlineMeter deadline_meter_;
         DeadlineMissFault deadline_miss_fault_;
+        SequencerResponseMeter sequencer_response_meter_;
         MotorDriver left_motor_;
         MotorDriver right_motor_;
         // Producer of the front range channel; read by the reflex (ADR 021).
@@ -164,5 +173,6 @@ class Controller
         WheelPair applied_duty_;
         TaskWatchdog watchdog_;
         WatchdogTestTrigger watchdog_test_trigger_;
+        ResponseTestTrigger response_test_trigger_;
         bool restarted_by_watchdog_ = false;
 };

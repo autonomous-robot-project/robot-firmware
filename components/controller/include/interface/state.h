@@ -15,6 +15,7 @@ struct State
         static constexpr uint32_t FAULT_DEADLINE_MISSED = 1u << 1;   // ADR 028
         static constexpr uint32_t FAULT_WATCHDOG_RESTART = 1u << 2;  // ADR 029
         static constexpr uint32_t FAULT_FRONT_SENSOR = 1u << 3;      // ADR 021
+        static constexpr uint32_t FAULT_TEST = 1u << 4;              // ADR 049, V-07
 
         // Reflex codes, one bit each in `reflexes`, likewise.
         static constexpr uint32_t REFLEX_FRONT_OBSTACLE = 1u << 0;  // ADR 021
