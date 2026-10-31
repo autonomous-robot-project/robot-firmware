@@ -22,7 +22,7 @@ void SequencerResponseMeter::record(
         next_event_.reset();
         return;
     }
-    start_event_when_due(release, random_word);
+    schedule_or_start_event(release, random_word);
 }
 
 void SequencerResponseMeter::end_event_if_answered(
@@ -45,7 +45,7 @@ void SequencerResponseMeter::end_event_if_answered(
     next_event_ = *stop_arrival + interval(random_word);
 }
 
-void SequencerResponseMeter::start_event_when_due(
+void SequencerResponseMeter::schedule_or_start_event(
     std::chrono::microseconds release, uint32_t random_word
 )
 {

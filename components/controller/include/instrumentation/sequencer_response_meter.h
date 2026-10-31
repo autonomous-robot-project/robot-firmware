@@ -45,7 +45,7 @@ class SequencerResponseMeter
         );
 
         // Schedules the next event, or starts it if its instant has come.
-        void start_event_when_due(std::chrono::microseconds release, uint32_t random_word);
+        void schedule_or_start_event(std::chrono::microseconds release, uint32_t random_word);
 
         // T_ev in [T_EV_MIN, T_EV_MAX].
         [[nodiscard]] static std::chrono::microseconds interval(uint32_t random_word);
