@@ -82,14 +82,16 @@ class Controller
 
         // Faults active at `now`, one bit per code (State::FAULT_*).
         [[nodiscard]] uint32_t active_faults(
-            std::chrono::microseconds now, bool tracking_lost, FrontCondition front
+            std::chrono::microseconds now, bool tracking_lost, FrontCondition front_condition
         ) const;
 
         // Reflexes active this cycle, one bit per code (State::REFLEX_*).
-        [[nodiscard]] static uint32_t active_reflexes(FrontCondition front);
+        [[nodiscard]] static uint32_t active_reflexes(FrontCondition front_condition);
 
         // The target without forward motion while the path ahead is not clear (ADR 021).
-        [[nodiscard]] static Twist restrict_by_reflexes(const Twist &target, FrontCondition front);
+        [[nodiscard]] static Twist restrict_by_reflexes(
+            const Twist &target, FrontCondition front_condition
+        );
 
         // The latest edges of both encoders, read once per cycle.
         [[nodiscard]] WheelEdges read_wheel_edges() const;
@@ -118,7 +120,7 @@ class Controller
             const Command &command,
             std::chrono::microseconds now,
             bool tracking_lost,
-            FrontCondition front
+            FrontCondition front_condition
         );
 
         // Writes the pose and the measured twist, stamped with the release of the cycle (ADR 027).
