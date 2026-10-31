@@ -11,9 +11,9 @@ void SequencerResponseMeter::record(
 )
 {
     // An active event ends normally even if the request was withdrawn (ADR 049).
-    if (event_active())
+    if (event_start_)
     {
-        end_event_if_answered(stop_arrival, random_word);
+        end_event_if_answered(*event_start_, stop_arrival, random_word);
         return;
     }
 
@@ -26,18 +26,20 @@ void SequencerResponseMeter::record(
 }
 
 void SequencerResponseMeter::end_event_if_answered(
-    std::optional<std::chrono::microseconds> stop_arrival, uint32_t random_word
+    std::chrono::microseconds event_start,
+    std::optional<std::chrono::microseconds> stop_arrival,
+    uint32_t random_word
 )
 {
     // A TWIST(0, 0) that arrived before the event is not a response to it.
-    const bool answered = stop_arrival && *stop_arrival > *event_start_;
+    const bool answered = stop_arrival && *stop_arrival > event_start;
     if (!answered)
     {
         return;
     }
     measurements_.test_event_index++;
     measurements_.test_event_response_us = static_cast<uint32_t>(
-        (*stop_arrival - *event_start_).count()
+        (*stop_arrival - event_start).count()
     );
     event_start_.reset();
     next_event_ = *stop_arrival + interval(random_word);

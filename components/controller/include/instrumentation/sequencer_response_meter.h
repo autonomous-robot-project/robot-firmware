@@ -36,10 +36,12 @@ class SequencerResponseMeter
         [[nodiscard]] Measurements measurements() const { return measurements_; }
 
     private:
-        // Ends the active event if a TWIST(0, 0) arrived after it started, and schedules the next
-        // one T_ev after that arrival.
+        // Ends the event active since `event_start` if a TWIST(0, 0) arrived after it, and
+        // schedules the next one T_ev after that arrival.
         void end_event_if_answered(
-            std::optional<std::chrono::microseconds> stop_arrival, uint32_t random_word
+            std::chrono::microseconds event_start,
+            std::optional<std::chrono::microseconds> stop_arrival,
+            uint32_t random_word
         );
 
         // Schedules the next event, or starts it if its instant has come.
