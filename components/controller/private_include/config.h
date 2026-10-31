@@ -53,6 +53,13 @@ constexpr std::chrono::milliseconds T_WAIT_VLX{500};
 // T_BUDGET_VLX: timing budget of one ranging, the ~33 ms default of the ST API (robot-docs nota
 // 0015).
 constexpr std::chrono::microseconds T_BUDGET_VLX{33000};
+// Range offset of this module (robot-docs nota 0015). Its factory register held +53.5 mm (0x00D6),
+// and with it the sensor still read 41.1 mm long at d_stop, by the line through two measured
+// points. The value is absolute: the sensor keeps its power across a restart of the ESP32, so
+// adding to the register at each initialization would apply the correction twice.
+constexpr int32_t FACTORY_OFFSET_VLX_UM = 53500;
+constexpr int32_t BIAS_AT_D_STOP_VLX_UM = 41100;
+constexpr int32_t RANGE_OFFSET_VLX_UM = FACTORY_OFFSET_VLX_UM - BIAS_AT_D_STOP_VLX_UM;
 
 // --- Sensor task (ADR 020; recovery in robot-docs nota 0015) ---
 constexpr int SENSOR_TASK_CORE = 0;      // with micro-ROS, off the core of the control task

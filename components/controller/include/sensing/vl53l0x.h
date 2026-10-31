@@ -24,13 +24,17 @@ class VL53L0X
                 gpio_num_t scl;
         };
 
-        // One ranging: the distance and the device range status of the ST API (bits 6 to 3 of
-        // RESULT_RANGE_STATUS), kept raw; robot-docs nota 0015 classifies them.
+        // One ranging: the distance, the device range status of the ST API (bits 6 to 3 of
+        // RESULT_RANGE_STATUS) and the return signal rate and effective SPAD count, from which the
+        // ST API rejects a weak return (range ignore threshold). Kept raw; robot-docs nota 0015
+        // classifies them.
         struct Measurement
         {
             public:
                 uint16_t distance_mm;
                 uint8_t device_status;
+                uint16_t signal_rate_q9_7;      // MCPS, fixed point 9.7
+                uint16_t effective_spads_q8_8;  // SPADs, fixed point 8.8
         };
 
         explicit VL53L0X(const Wiring &wiring);
@@ -44,6 +48,7 @@ class VL53L0X
         // Brings the sensor from reset to ready for ranging, as the Pololu init(): data init,
         // static init (reference SPADs and the ST tuning) and reference calibration. Blocks the
         // caller between polls, for tens of ms. Also the recovery after N_I2C failures (D4).
+        // Ends by writing the range offset RANGE_OFFSET_VLX_UM of this module.
         esp_err_t initialize();
 
         // Starts the continuous back-to-back mode with the timing budget T_BUDGET_VLX: the sensor
@@ -82,6 +87,8 @@ class VL53L0X
         esp_err_t reference_calibration();
         esp_err_t single_reference_calibration(uint8_t vhv_init);
         esp_err_t set_timing_budget(std::chrono::microseconds budget);
+        // Offset that the sensor adds to each ranging, absolute: it replaces the factory value.
+        esp_err_t set_range_offset(int32_t offset_um);
         esp_err_t enter_private_page();
         esp_err_t leave_private_page();
         esp_err_t load_tuning_settings();

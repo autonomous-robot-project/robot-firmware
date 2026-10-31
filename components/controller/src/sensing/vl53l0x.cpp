@@ -35,6 +35,7 @@ static constexpr uint8_t VHV_CONFIG_PAD_SCL_SDA_EXTSUP_HV = 0x89;
 static constexpr uint8_t GLOBAL_CONFIG_SPAD_ENABLES_REF_0 = 0xB0;
 static constexpr uint8_t GLOBAL_CONFIG_REF_EN_START_SELECT = 0xB6;
 static constexpr uint8_t IDENTIFICATION_MODEL_ID = 0xC0;
+static constexpr uint8_t ALGO_PART_TO_PART_RANGE_OFFSET_MM = 0x28;
 static constexpr uint8_t RESULT_RANGE_STATUS = 0x14;
 static constexpr uint8_t MSRC_CONFIG_TIMEOUT_MACROP = 0x46;
 static constexpr uint8_t PRE_RANGE_CONFIG_VCSEL_PERIOD = 0x50;
@@ -65,13 +66,14 @@ static constexpr uint8_t CLEAR_INTERRUPT = 0x01;
 static constexpr uint8_t START_BACK_TO_BACK = 0x02;
 
 // Ranging result: 12 registers from RESULT_RANGE_STATUS, read in one transaction as the ST API
-// does. The device range status is in bits 6 to 3 of the first; the distance, in the 11th and
-// 12th.
+// does. The device range status is in bits 6 to 3 of the first; the 16-bit values come high
+// byte first.
 static constexpr size_t RESULT_BYTES = 12;
 static constexpr uint8_t DEVICE_STATUS_MASK = 0x78;
 static constexpr int DEVICE_STATUS_SHIFT = 3;
+static constexpr size_t EFFECTIVE_SPADS_HIGH_BYTE = 2;
+static constexpr size_t SIGNAL_RATE_HIGH_BYTE = 6;
 static constexpr size_t DISTANCE_HIGH_BYTE = 10;
-static constexpr size_t DISTANCE_LOW_BYTE = 11;
 
 // Overheads of the steps of a ranging (ST API, VL53L0X_set_measurement_timing_budget).
 static constexpr microseconds START_OVERHEAD{1910};
@@ -89,10 +91,19 @@ static constexpr uint8_t REFERENCE_START_SELECT = 0xB4;
 static constexpr uint8_t SPAD_COUNT_MASK = 0x7F;
 static constexpr uint8_t SPAD_APERTURE_BIT = 0x80;
 
+// Range offset register: 12-bit two's complement in quarters of a millimetre (ST API 10.2 format).
+static constexpr int32_t OFFSET_STEP_UM = 250;
+static constexpr int32_t OFFSET_REGISTER_RANGE = 4096;
+
 static constexpr int MAX_POLLS = static_cast<int>(T_WAIT_VLX / T_POLL_VLX);
 
 static constexpr uint8_t STOP_VARIABLE = 0x91;
 static constexpr uint8_t I2C_STANDARD_MODE = 0x88;
+
+static uint16_t big_endian_16(const std::array<uint8_t, RESULT_BYTES> &bytes, size_t high)
+{
+    return static_cast<uint16_t>((bytes[high] << 8) | bytes[high + 1]);
+}
 
 // Timeout arithmetic of the ST API (vl53l0x_api_core.c), as ported by Pololu.
 
@@ -175,6 +186,14 @@ void VL53L0X::start()
     ESP_ERROR_CHECK(device_added);
 }
 
+// As VL53L0X_set_offset_calibration_data_micro_meter of the ST API.
+esp_err_t VL53L0X::set_range_offset(int32_t offset_um)
+{
+    const int32_t steps = offset_um / OFFSET_STEP_UM;
+    const int32_t encoded = steps >= 0 ? steps : OFFSET_REGISTER_RANGE + steps;
+    return write_register_16(ALGO_PART_TO_PART_RANGE_OFFSET_MM, static_cast<uint16_t>(encoded));
+}
+
 esp_err_t VL53L0X::start_continuous()
 {
     ESP_RETURN_ON_ERROR(enter_private_page(), TAG, "enter page");
@@ -192,9 +211,9 @@ esp_err_t VL53L0X::read_measurement(Measurement &measurement)
         read_block(RESULT_RANGE_STATUS, result.data(), result.size()), TAG, "read"
     );
     measurement.device_status = (result[0] & DEVICE_STATUS_MASK) >> DEVICE_STATUS_SHIFT;
-    measurement.distance_mm = static_cast<uint16_t>(
-        (result[DISTANCE_HIGH_BYTE] << 8) | result[DISTANCE_LOW_BYTE]
-    );
+    measurement.distance_mm = big_endian_16(result, DISTANCE_HIGH_BYTE);
+    measurement.signal_rate_q9_7 = big_endian_16(result, SIGNAL_RATE_HIGH_BYTE);
+    measurement.effective_spads_q8_8 = big_endian_16(result, EFFECTIVE_SPADS_HIGH_BYTE);
 
     return write_register(SYSTEM_INTERRUPT_CLEAR, CLEAR_INTERRUPT);
 }
@@ -216,6 +235,7 @@ esp_err_t VL53L0X::initialize()
     ESP_RETURN_ON_ERROR(data_init(), TAG, "data init");
     ESP_RETURN_ON_ERROR(static_init(), TAG, "static init");
     ESP_RETURN_ON_ERROR(reference_calibration(), TAG, "reference calibration");
+    ESP_RETURN_ON_ERROR(set_range_offset(RANGE_OFFSET_VLX_UM), TAG, "range offset");
     return ESP_OK;
 }
 

@@ -83,6 +83,8 @@ void FrontRangeReader::read_until_failure()
         ranges_.write({
             .distance_mm = measurement.distance_mm,
             .device_status = measurement.device_status,
+            .signal_rate_q9_7 = measurement.signal_rate_q9_7,
+            .effective_spads_q8_8 = measurement.effective_spads_q8_8,
             .measured_at = std::chrono::microseconds{esp_timer_get_time()},
         });
     }
