@@ -35,6 +35,7 @@ struct StateMessageFault
         static constexpr uint32_t
             WATCHDOG_RESTART = robot_interfaces__msg__State__FAULT_WATCHDOG_RESTART;
         static constexpr uint32_t FRONT_SENSOR = robot_interfaces__msg__State__FAULT_FRONT_SENSOR;
+        static constexpr uint32_t TEST = robot_interfaces__msg__State__FAULT_TEST;
 };
 
 // Reflex codes of StateMessage::reflexes (State.msg).

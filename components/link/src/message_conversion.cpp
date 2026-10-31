@@ -11,6 +11,7 @@ static_assert(State::FAULT_COGNIZANT == StateMessageFault::COGNIZANT);
 static_assert(State::FAULT_DEADLINE_MISSED == StateMessageFault::DEADLINE_MISSED);
 static_assert(State::FAULT_WATCHDOG_RESTART == StateMessageFault::WATCHDOG_RESTART);
 static_assert(State::FAULT_FRONT_SENSOR == StateMessageFault::FRONT_SENSOR);
+static_assert(State::FAULT_TEST == StateMessageFault::TEST);
 static_assert(State::REFLEX_FRONT_OBSTACLE == StateMessageReflex::FRONT_OBSTACLE);
 
 static std::optional<Behavior> to_behavior(uint8_t code)
@@ -88,6 +89,8 @@ InstrumentationMessage to_message(const Instrumentation &instrumentation)
         .max_execution_time_us = instrumentation.deadlines.max_execution_time_us,
         .max_response_time_us = instrumentation.deadlines.max_response_time_us,
         .deadline_misses = instrumentation.deadlines.deadline_misses,
+        .test_event_index = instrumentation.sequencer_response.test_event_index,
+        .test_event_response_us = instrumentation.sequencer_response.test_event_response_us,
         .left_wheel_speed = instrumentation.wheel_speeds.left,
         .right_wheel_speed = instrumentation.wheel_speeds.right,
     };
