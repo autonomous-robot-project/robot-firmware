@@ -22,6 +22,8 @@ build test_behaviors.cpp "$CONTROLLER/src/control/turn_to.cpp" "$CONTROLLER/src/
     -o "$BUILD/test_behaviors"
 build test_deadline_meter.cpp "$CONTROLLER/src/instrumentation/deadline_meter.cpp" \
     -o "$BUILD/test_deadline_meter"
+build test_front_range_classifier.cpp "$CONTROLLER/src/sensing/front_range_classifier.cpp" \
+    -o "$BUILD/test_front_range_classifier"
 
 echo "== WheelPI"
 "$BUILD/test_wheel_pi"
@@ -33,3 +35,5 @@ echo "== TURN_TO and GO_TO"
 "$BUILD/test_behaviors"
 echo "== DeadlineMeter"
 "$BUILD/test_deadline_meter"
+echo "== FrontRangeClassifier"
+"$BUILD/test_front_range_classifier"

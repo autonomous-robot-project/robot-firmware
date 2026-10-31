@@ -88,3 +88,13 @@ constexpr float WHEEL_STOP_SECONDS = 0.05f;  // s, braked from v_min (robot-docs
 constexpr float REVERSAL_BRAKE_SECONDS = V_MIN / A_DEC + V_MIN / A_ACCEL;  // s
 static_assert(T_VEL_SECONDS + WHEEL_STOP_SECONDS < REVERSAL_BRAKE_SECONDS);
 static_assert(T_VEL_SECONDS > WHEEL_TRAVEL_PER_EDGE / V_MIN);
+
+// --- Front obstacle reflex (ADR 021, V-03; robot-docs nota 0015) ---
+constexpr float D_STOP = 0.15f;  // d_stop (m): provisional until the floor trials (robot-docs#27)
+// T_S: a ranging older than this is not trusted, about three of the longest intervals between
+// rangings (32 ms); v_max T_S = 20 mm travelled blind.
+constexpr std::chrono::milliseconds T_S{100};
+// Signal rate per SPAD (MCPS) below which a complete ranging is the crosstalk of the cover, not a
+// target: 8x the largest false target, ~50x below the screen of V-03 (robot-docs#48 measures it
+// again with the sensor mounted).
+constexpr float S_MIN_VLX = 0.02f;

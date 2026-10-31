@@ -14,4 +14,16 @@ struct FrontRange
         uint16_t signal_rate_q9_7 = 0;
         uint16_t effective_spads_q8_8 = 0;
         std::chrono::microseconds measured_at{0};
+
+        // Signal rate per effective SPAD (MCPS), from the fixed-point fields; zero without SPADs.
+        [[nodiscard]] float signal_rate_per_spad() const
+        {
+            constexpr float signal_rate_scale = 1.0f / (1 << 7);  // Q9.7
+            constexpr float spads_scale = 1.0f / (1 << 8);        // Q8.8
+            if (effective_spads_q8_8 == 0)
+            {
+                return 0.0f;
+            }
+            return (signal_rate_q9_7 * signal_rate_scale) / (effective_spads_q8_8 * spads_scale);
+        }
 };
