@@ -44,6 +44,8 @@ void Controller::start()
     left_motor_.start();
     right_motor_.start();
 
+    front_range_reader_.start();
+
     const BaseType_t created = xTaskCreatePinnedToCore(
         &Controller::task_entry,
         "control",

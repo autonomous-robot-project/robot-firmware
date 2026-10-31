@@ -15,6 +15,7 @@
 #include "actuation/motor_driver.h"
 #include "interface/odometry.h"
 #include "interface/state.h"
+#include "sensing/front_range_reader.h"
 #include "sensing/wheel_encoder.h"
 #include "sensing/wheel_odometry.h"
 #include "sensing/wheel_speed.h"
@@ -32,7 +33,8 @@ class Controller
         Controller &operator=(const Controller &) = delete;
 
         // Starts the watchdog, the watchdog test trigger, the encoders and the motor drivers, with
-        // the wheels free, and then the control task. Called once, at boot, on core 0.
+        // the wheels free, then the sensor task and the control task. Called once, at boot, on
+        // core 0.
         void start();
 
         // Producer side of the command channel, called by the link. Stamps the arrival time,
@@ -128,6 +130,8 @@ class Controller
         DeadlineMeter deadline_meter_;
         MotorDriver left_motor_;
         MotorDriver right_motor_;
+        // Producer of the front range channel; read by the reflex (ADR 021).
+        FrontRangeReader front_range_reader_;
         WheelEncoder left_encoder_;
         WheelEncoder right_encoder_;
         WheelSpeed left_speed_;
