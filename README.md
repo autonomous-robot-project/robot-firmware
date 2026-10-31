@@ -1,23 +1,25 @@
 # robot-firmware
 
-Embedded code for motor actuation, sensor reading, communication with the robot's main system and security logic.
+Código embarcado de atuação dos motores, leitura de sensores, comunicação com o sistema principal do robô e lógica de segurança.
 
-## Static analysis
+## Análise estática
 
-clang-tidy with `.clang-tidy`, using the esp-clang toolchain (`idf_tools.py install esp-clang`, `pip install pyclang`) in a separate build directory, so the GCC build stays untouched:
+clang-tidy com o `.clang-tidy`, pela toolchain esp-clang (`idf_tools.py install esp-clang`, `pip install pyclang`), num diretório de build separado, para o build com GCC não ser alterado:
 
 ```
 IDF_TOOLCHAIN=clang idf.py -B build-clang clang-check --run-clang-tidy-options "-config-file=$PWD/.clang-tidy"
 ```
 
-The report goes to `warnings.txt`. `IDF_TOOLCHAIN` goes in the environment: `clang-check` reconfigures the build on its own and ignores a `-D` option.
+O relatório vai para `warnings.txt`. O `IDF_TOOLCHAIN` vai no ambiente: o `clang-check` reconfigura o build sozinho e ignora uma opção `-D`.
 
-## Bench tools
+## Ferramentas de bancada
 
-`tools/motor_characterization`: open-loop characterization of the motors, with the wheels suspended. A separate ESP-IDF app that reuses the `controller` component (no link, no micro-ROS). Build it in its folder with `idf.py build`, flash the app at `0x10000` as the robot firmware, and run on the RPi `python3 characterize.py record <USB port> <file.csv>`: the script starts the run, records the CSV and prints the dead zone, the steady speed and the time constant of each step, and the line speed = gain · (|duty| − dead zone). Flash the robot firmware back afterwards.
+`tools/motor_characterization`: caracterização dos motores em malha aberta, com as rodas suspensas. É um app ESP-IDF separado que reaproveita o componente `controller` (sem enlace, sem micro-ROS). Compile-o na própria pasta com `idf.py build`, grave o app em `0x10000` como o firmware do robô e rode no RPi `python3 characterize.py record <porta USB> <arquivo.csv>`: o script inicia o ensaio, grava o CSV e imprime a zona morta, a velocidade de regime e a constante de tempo de cada degrau, e a reta velocidade = ganho · (|duty| − zona morta). Depois, grave de volta o firmware do robô.
 
-The brake after each step is the full brake, which stresses the motor and the gearbox mechanically and thermally. The steps go from the lowest duty up: watch the first brakes, at low speed, and cut the motor supply if the gearbox shows trouble (ADR 023).
+O freio depois de cada degrau é o freio total, que solicita o motor e a caixa de redução mecânica e termicamente. Os degraus vão do menor duty para o maior: observe os primeiros freios, em baixa velocidade, e corte a alimentação dos motores se a caixa mostrar problema (ADR 023).
 
-## Unit tests on the host
+`tools/front_range`: as medidas do sensor frontal (VL53L0X), para o T_S e a tabela de status da ADR 021. É um app ESP-IDF separado que roda a tarefa de sensor do componente `controller`, com a recuperação do I²C, e imprime uma linha CSV por medida; não aciona motor. Compile e grave como o `motor_characterization` e rode no RPi, um cenário por vez, `python3 front_range.py record <porta USB> <arquivo.csv> <segundos>` e `python3 front_range.py analyze <arquivo.csv> [status não classificáveis]`. Depois, grave de volta o firmware do robô.
 
-`test/host/run.sh` builds and runs, with plain `g++` and no ESP-IDF, the unit tests of the control classes that use only `control_config.h`. The models of the motor, of the encoder and of the closed loop of one wheel are in `test/host/wheel_model.h`. Today: `WheelPI` (integral bounded with the wheel stalled or the reference out of reach, settling time within t_s, speed held at v_min through the encoder, brake below v_min) and `WheelTrackingMonitor` (the V-02 trial: no failure at start, stall reported within t* + T_f, cleared after the release, nothing judged below v_min).
+## Testes de unidade no host
+
+`test/host/run.sh` compila e roda, com `g++` puro e sem ESP-IDF, os testes de unidade das classes de controle que só usam o `control_config.h`. Os modelos do motor, do encoder e da malha fechada de uma roda estão em `test/host/wheel_model.h`. Hoje: `WheelPI` (integral limitada com a roda travada ou a referência fora de alcance, tempo de acomodação dentro de t_s, velocidade mantida em v_min pelo encoder, freio abaixo de v_min) e `WheelTrackingMonitor` (o ensaio da V-02: sem falha na partida, travamento reportado em até t* + T_f, liberado depois da soltura, nada julgado abaixo de v_min).
