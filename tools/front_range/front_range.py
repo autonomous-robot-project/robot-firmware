@@ -5,7 +5,8 @@ Rangings of the front sensor (bench tool, V-03): the data of T_S and of the stat
 Records the CSV that the front_range app prints on the USB console, one scenario per file, and
 reports:
 - the intervals between consecutive rangings;
-- for each device status: count, distance and the longest gap between rangings of the other
+- for each device status: count, distance, return signal rate per SPAD (the quantity of the range
+  ignore threshold of the ST API) and the longest gap between rangings of the other
   statuses, which is the time without a classifiable reading if that status alone were not
   classifiable;
 - with the statuses that the status table leaves unclassifiable, the longest gap between the
@@ -17,6 +18,7 @@ Usage, on the RPi with the app flashed:
 Criticality: T1, evidence (robot-docs codigo.md).
 """
 
+import re
 import sys
 import time
 from dataclasses import dataclass
@@ -25,6 +27,7 @@ from statistics import median, quantiles
 
 READ_TIMEOUT_S = 1.0  # a silent console still lets the recording end on time
 LOG_PREFIXES = ('W (', 'E (')  # warnings and errors of the sensor task (ESP-IDF log)
+COLOR_CODES = re.compile(r'\x1b\[[0-9;]*m')  # the ESP-IDF log colors its lines
 
 
 @dataclass
@@ -32,6 +35,7 @@ class Ranging:
     time: float  # s, measured_at of the sensor task
     distance_mm: int
     status: int
+    signal_per_spad_mcps: float  # signal rate (9.7) over effective SPADs (8.8)
 
 
 class Recording:
@@ -40,10 +44,11 @@ class Recording:
     def __init__(self, lines):
         self.rangings = []
         self.log_lines = []
-        for line in lines:
+        for raw_line in lines:
+            line = COLOR_CODES.sub('', raw_line)
             fields = line.strip().split(',')
             if fields[0] == 'range':
-                self.rangings.append(Ranging(int(fields[1]) / 1e6, int(fields[2]), int(fields[3])))
+                self.rangings.append(Ranging(*parse_ranging(fields[1:])))
             elif line.startswith(LOG_PREFIXES):
                 self.log_lines.append(line.strip())
 
@@ -59,6 +64,13 @@ class Recording:
         """Longest time between consecutive rangings whose status is not in `unclassifiable`."""
         times = [ranging.time for ranging in self.rangings if ranging.status not in unclassifiable]
         return max((later - earlier for earlier, later in pairwise(times)), default=None)
+
+
+def parse_ranging(fields):
+    t_us, distance_mm, status, signal_q9_7, spads_q8_8 = (int(field) for field in fields)
+    spads = spads_q8_8 / 256
+    signal_per_spad = (signal_q9_7 / 128) / spads if spads else 0.0
+    return t_us / 1e6, distance_mm, status, signal_per_spad
 
 
 def milliseconds(seconds):
@@ -82,11 +94,15 @@ def print_intervals(recording):
 def print_statuses(recording):
     total = len(recording.rangings)
     for status in recording.statuses():
-        distances = [ranging.distance_mm for ranging in recording.rangings if ranging.status == status]
+        of_status = [ranging for ranging in recording.rangings if ranging.status == status]
+        distances = [ranging.distance_mm for ranging in of_status]
+        signals = [ranging.signal_per_spad_mcps for ranging in of_status]
         print(
             f'status {status}: {len(distances)} ({100 * len(distances) / total:.1f} %), '
             f'distance min {min(distances)}, median {median(distances):.0f}, '
             f'max {max(distances)} mm; '
+            f'signal per SPAD min {min(signals):.4f}, median {median(signals):.4f}, '
+            f'max {max(signals):.4f} MCPS; '
             f'longest gap if only it were unclassifiable {milliseconds(recording.longest_gap({status}))}'
         )
 

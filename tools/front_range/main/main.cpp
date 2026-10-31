@@ -1,7 +1,8 @@
 // Bench tool: the rangings of the front sensor, for T_S and the status table of ADR 021
 // (robot-docs nota 0015). Runs the FrontRangeReader of the robot firmware, with its recovery,
 // and prints CSV on the USB console:
-//   range,<t_us>,<distance_mm>,<device_status>   every new ranging, t_us its measured_at
+//   range,<t_us>,<distance_mm>,<device_status>,<signal_rate_q9_7>,<effective_spads_q8_8>
+//   every new ranging, t_us its measured_at
 // The warnings of the sensor task go to the same console. tools/front_range/front_range.py
 // records and summarizes them. Nothing drives the motors.
 // Criticality: T1, evidence (robot-docs codigo.md).
@@ -27,17 +28,20 @@ static FrontRangeReader reader;
 static void print_range(const FrontRange &range)
 {
     std::printf(
-        "range,%lld,%u,%u\n",
+        "range,%lld,%u,%u,%u,%u\n",
         range.measured_at.count(),
         static_cast<unsigned>(range.distance_mm),
-        static_cast<unsigned>(range.device_status)
+        static_cast<unsigned>(range.device_status),
+        static_cast<unsigned>(range.signal_rate_q9_7),
+        static_cast<unsigned>(range.effective_spads_q8_8)
     );
 }
 
 extern "C" void app_main()
 {
     reader.start();
-    std::printf("# front_range: kind,t_us,distance_mm,device_status\n");
+    std::printf("# front_range: "
+                "kind,t_us,distance_mm,device_status,signal_rate_q9_7,effective_spads_q8_8\n");
 
     microseconds last_printed{-1};
     TickType_t last_wake = xTaskGetTickCount();
