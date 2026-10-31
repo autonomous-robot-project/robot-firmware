@@ -89,7 +89,7 @@ static constexpr uint8_t REFERENCE_START_SELECT = 0xB4;
 static constexpr uint8_t SPAD_COUNT_MASK = 0x7F;
 static constexpr uint8_t SPAD_APERTURE_BIT = 0x80;
 
-static constexpr int MAX_POLLS = static_cast<int>(T_WAIT / T_POLL);
+static constexpr int MAX_POLLS = static_cast<int>(T_WAIT_VLX / T_POLL_VLX);
 
 static constexpr uint8_t STOP_VARIABLE = 0x91;
 static constexpr uint8_t I2C_STANDARD_MODE = 0x88;
@@ -442,7 +442,7 @@ esp_err_t VL53L0X::wait_until_set(uint8_t reg, uint8_t mask)
         {
             return ESP_OK;
         }
-        vTaskDelay(pdMS_TO_TICKS(T_POLL.count()));
+        vTaskDelay(pdMS_TO_TICKS(T_POLL_VLX.count()));
     }
     return ESP_ERR_TIMEOUT;
 }

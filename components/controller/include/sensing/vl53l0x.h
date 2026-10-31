@@ -37,7 +37,8 @@ class VL53L0X
         VL53L0X(const VL53L0X &) = delete;
         VL53L0X &operator=(const VL53L0X &) = delete;
 
-        // Creates the I2C bus and the device. Called once, at boot, by the task that reads it.
+        // Creates the I2C bus and the device. Called once, at boot, from core 0, so that the
+        // interrupt of the bus stays there.
         void start();
 
         // Brings the sensor from reset to ready for ranging, as the Pololu init(): data init,
@@ -49,8 +50,8 @@ class VL53L0X
         // ranges again as soon as it ends (robot-docs nota 0015).
         esp_err_t start_continuous();
 
-        // Waits, polling every T_POLL for at most T_WAIT, for the next ranging of the continuous
-        // mode, reads it and clears its interrupt.
+        // Waits, polling every T_POLL_VLX for at most T_WAIT_VLX, for the next ranging of the
+        // continuous mode, reads it and clears its interrupt.
         esp_err_t read_measurement(Measurement &measurement);
 
         // Releases a slave that holds SDA low, with clock pulses on SCL (robot-docs nota 0015).
@@ -85,7 +86,7 @@ class VL53L0X
         esp_err_t leave_private_page();
         esp_err_t load_tuning_settings();
 
-        // Polls `reg` every T_POLL until a bit of `mask` is set, for at most T_WAIT.
+        // Polls `reg` every T_POLL_VLX until a bit of `mask` is set, for at most T_WAIT_VLX.
         esp_err_t wait_until_set(uint8_t reg, uint8_t mask);
 
         esp_err_t write_registers(std::span<const RegisterWrite> writes);
