@@ -30,10 +30,19 @@ struct StateMessageFault
 {
     public:
         static constexpr uint32_t COGNIZANT = robot_interfaces__msg__State__FAULT_COGNIZANT;
-        static constexpr uint32_t DEADLINE_MISSED =
-            robot_interfaces__msg__State__FAULT_DEADLINE_MISSED;
-        static constexpr uint32_t WATCHDOG_RESTART =
-            robot_interfaces__msg__State__FAULT_WATCHDOG_RESTART;
+        static constexpr uint32_t
+            DEADLINE_MISSED = robot_interfaces__msg__State__FAULT_DEADLINE_MISSED;
+        static constexpr uint32_t
+            WATCHDOG_RESTART = robot_interfaces__msg__State__FAULT_WATCHDOG_RESTART;
+        static constexpr uint32_t FRONT_SENSOR = robot_interfaces__msg__State__FAULT_FRONT_SENSOR;
+};
+
+// Reflex codes of StateMessage::reflexes (State.msg).
+struct StateMessageReflex
+{
+    public:
+        static constexpr uint32_t
+            FRONT_OBSTACLE = robot_interfaces__msg__State__REFLEX_FRONT_OBSTACLE;
 };
 
 inline const rosidl_message_type_support_t *command_type_support()
