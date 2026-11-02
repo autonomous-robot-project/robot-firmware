@@ -27,7 +27,8 @@ constexpr float WHEEL_TRAVEL_PER_EDGE = std::numbers::pi_v<float> * WHEEL_DIAMET
 // --- Reference: acceleration limits (ADR 023) and inverse kinematics; provisional values ---
 constexpr float A_ACCEL = 0.25f;  // m/s², limited by the current and the gearbox (robot-docs#27)
 constexpr float A_DEC = 0.5f;     // m/s², limited by slip; steeper than A_ACCEL (robot-docs#27)
-constexpr float TRACK_WIDTH = 0.15f;  // b (m), between the wheels (robot-docs#25)
+// b (m), wheel center to center: mean of 164 mm outside, 114 mm inside (robot-docs#25)
+constexpr float TRACK_WIDTH = 0.139f;
 
 // --- Convergence profiles of TURN_TO and GO_TO (ADR 030); provisional values ---
 // The profiles decelerate a little below the limit of the ramp, as margin for the discretization.
