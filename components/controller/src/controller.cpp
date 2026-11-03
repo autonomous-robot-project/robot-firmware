@@ -131,21 +131,11 @@ void Controller::control_cycle(std::chrono::microseconds release)
     publish_state(command, release, wheels_lost_tracking, front_condition);
     publish_odometry(pose, measured, release);
 
-    // Instrumentation logic
     record_expiry(latest, release);
     publish_instrumentation(measured);
 
     watchdog_.feed();
-
-    // Last step, so C and R cover the whole cycle, the instrumentation included; this cycle
-    // reaches the instrumentation and the State in the next one, which is enough for values
-    // accumulated since boot (V-05) and for a code that lasts 200 ms (ADR 028).
-    const std::chrono::microseconds end = now();
-    const bool deadline_missed = deadline_meter_.record(release, start, end);
-    if (deadline_missed)
-    {
-        deadline_miss_fault_.record_miss(end);
-    }
+    record_cycle_time(release, start);
 }
 
 WheelEdges Controller::read_wheel_edges() const
@@ -345,6 +335,17 @@ void Controller::record_test_event(
     sequencer_response_meter_.record(
         cycle, response_test_trigger_.requested(), stop_arrival, esp_random()
     );
+}
+
+void Controller::record_cycle_time(
+    std::chrono::microseconds release, std::chrono::microseconds start
+)
+{
+    const std::chrono::microseconds end = now();
+    if (deadline_meter_.record(release, start, end))
+    {
+        deadline_miss_fault_.record_miss(end);
+    }
 }
 
 void Controller::publish_instrumentation(const WheelPair &wheel_speeds)

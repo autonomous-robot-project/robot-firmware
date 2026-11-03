@@ -146,6 +146,12 @@ class Controller
         // Writes the measurements of the meters for the verifications (ADR 028).
         void publish_instrumentation(const WheelPair &wheel_speeds);
 
+        // Last step of the cycle, so C and R cover all of it, the instrumentation included
+        // (V-05); a missed deadline sets its code for 200 ms (ADR 028). This cycle reaches the
+        // instrumentation and the State in the next one, enough for values accumulated since
+        // boot and for a code that lasts 200 ms.
+        void record_cycle_time(std::chrono::microseconds release, std::chrono::microseconds start);
+
         LatestValueChannel<StampedCommand> commands_;
         LatestValueChannel<State> states_;
         LatestValueChannel<Instrumentation> instrumentation_;
