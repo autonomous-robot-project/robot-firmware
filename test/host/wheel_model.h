@@ -82,7 +82,7 @@ class ClosedLoopWheel
         float step(float reference, std::chrono::microseconds now)
         {
             const float measured = speed_estimate_.update(encoder_.edges(), now, applied_duty_);
-            applied_duty_ = pi_.update(reference, measured);
+            applied_duty_ = pi_.update(speed_estimate_.reference_from_stop(reference), measured);
 
             const float start_speed = motor_.speed();
             motor_.apply(applied_duty_);

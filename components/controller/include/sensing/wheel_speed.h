@@ -24,10 +24,17 @@ class WheelSpeed
         // Direction locked for the wheel (ADR 019): +1 forward, -1 backward.
         [[nodiscard]] float direction() const { return direction_; }
 
+        // The reference the wheel may follow: zero, a brake, while it still turns against the
+        // sign of `reference`, so it reverses only from a stop and the direction follows the
+        // duty (ADR 019). Otherwise a quick reversal keeps the old direction, the PI pushes the
+        // wrong way and the wheel runs away (robot-docs nota 0018).
+        [[nodiscard]] float reference_from_stop(float reference) const;
+
     private:
         [[nodiscard]] static float magnitude(
             const std::optional<EncoderEdges> &edges, std::chrono::microseconds now
         );
 
         float direction_ = 1.0f;  // +1 forward, -1 backward
+        float speed_ = 0.0f;      // of the latest update
 };

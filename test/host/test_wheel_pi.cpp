@@ -155,8 +155,41 @@ static void test_lowest_speed_with_encoder()
     );
 }
 
+// TWIST(0.2, 0) -> TURN_TO: the reference of the inner wheel crosses +-v_min at the linear and the
+// angular ramp added, 0.5 + 0.25 m/s², in less than T_VEL plus the stop (robot-docs nota 0018).
+// The wheel must reverse and follow the reference, not run away with the old direction (ADR 019).
+static void test_fast_reversal_with_encoder()
+{
+    constexpr float start = 0.2f;
+    constexpr float target = -0.09f;
+    constexpr float ramp = 0.75f;  // m/s², A_DEC + A_ACCEL at the wheel
+    ClosedLoopWheel wheel;
+    constexpr int one_second = 100;
+    for (int cycle = 0; cycle < one_second; cycle++)
+    {
+        wheel.step(start, cycle_instant(cycle));
+    }
+
+    constexpr int three_seconds = 300;
+    for (int cycle = 0; cycle < three_seconds; cycle++)
+    {
+        const float elapsed = static_cast<float>(cycle) * T_C_SECONDS;
+        const float reference = std::max(target, start - ramp * elapsed);
+        wheel.step(reference, cycle_instant(one_second + cycle));
+    }
+    std::printf(
+        "      fast reversal to %.2f m/s: speed %.4f m/s after 3 s\n", target, wheel.true_speed()
+    );
+
+    check(
+        std::abs(wheel.true_speed() - target) <= 0.1f * std::abs(target),
+        "fast reversal +0.2 -> -0.09 m/s: the wheel follows the reference, no runaway"
+    );
+}
+
 int main()
 {
+    test_fast_reversal_with_encoder();
     test_stalled_wheel();
     test_unreachable_reference();
     test_settling_time();

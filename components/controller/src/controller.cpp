@@ -177,8 +177,10 @@ WheelPair Controller::wheel_references(const Twist &target)
 void Controller::drive_wheels(const WheelPair &references, const WheelPair &measured)
 {
     const WheelPair duty = {
-        .left = left_pi_.update(references.left, measured.left),
-        .right = right_pi_.update(references.right, measured.right),
+        .left = left_pi_.update(left_speed_.reference_from_stop(references.left), measured.left),
+        .right = right_pi_.update(
+            right_speed_.reference_from_stop(references.right), measured.right
+        ),
     };
 
     left_motor_.apply(duty.left);

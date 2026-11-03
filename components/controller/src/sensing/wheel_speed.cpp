@@ -17,7 +17,15 @@ float WheelSpeed::update(
         direction_ = applied_duty > 0.0f ? 1.0f : -1.0f;
     }
 
-    return direction_ * speed;
+    speed_ = direction_ * speed;
+    return speed_;
+}
+
+float WheelSpeed::reference_from_stop(float reference) const
+{
+    const bool against_direction = reference * direction_ < 0.0f;
+    const bool turning = speed_ != 0.0f;
+    return against_direction && turning ? 0.0f : reference;
 }
 
 float WheelSpeed::magnitude(

@@ -78,16 +78,12 @@ constexpr float V_MIN_CONTROL = 0.07f;
 constexpr float V_MIN = std::max(V_MIN_DETECTION, V_MIN_CONTROL);
 
 // No edge for T_VEL means the speed zero, and only then is the direction of the wheel re-evaluated
-// (ADR 019). A reversing wheel is braked while the ramp takes its reference across +-v_min,
-// v_min / a_dec + v_min / a_accel = 0.42 s; it stops in ~50 ms (robot-docs nota 0010), so it must
-// be declared stopped within the rest, or the first edge of the reverse keeps the old direction
-// and the wheel runs away (robot-docs nota 0014). T_VEL must also stay above the edge interval at
-// v_min (0.15 s), so the estimate does not drop to zero between two edges.
+// (ADR 019). A reversing wheel is braked until then (WheelSpeed::reference_from_stop): the brake
+// of the ramp across +-v_min alone did not cover T_VEL when the linear and the angular ramps add
+// up (robot-docs notas 0014 and 0018). T_VEL must also stay above the edge interval at v_min
+// (0.15 s), so the estimate does not drop to zero between two edges.
 constexpr std::chrono::microseconds T_VEL{std::chrono::milliseconds{300}};
 constexpr float T_VEL_SECONDS = std::chrono::duration<float>(T_VEL).count();
-constexpr float WHEEL_STOP_SECONDS = 0.05f;  // s, braked from v_min (robot-docs nota 0010)
-constexpr float REVERSAL_BRAKE_SECONDS = V_MIN / A_DEC + V_MIN / A_ACCEL;  // s
-static_assert(T_VEL_SECONDS + WHEEL_STOP_SECONDS < REVERSAL_BRAKE_SECONDS);
 static_assert(T_VEL_SECONDS > WHEEL_TRAVEL_PER_EDGE / V_MIN);
 
 // --- Front obstacle reflex (ADR 021, V-03; robot-docs nota 0015) ---
