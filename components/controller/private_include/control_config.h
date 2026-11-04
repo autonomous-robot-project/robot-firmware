@@ -48,8 +48,8 @@ constexpr float D_0 = 0.1f;  // d_0 (m): below it the steering of GO_TO fades ou
 constexpr float MOTOR_GAIN = 1.3f;
 constexpr float MOTOR_TIME_CONSTANT = 0.04f;  // τ (s)
 // Settling time (2 %) of the wheel speed, a design choice: at least ~0.4 s, so the closed loop is
-// slower than the edges at 0.2 m/s (one every ~51 ms), and at most ~0.95 s, so a stall is detected
-// within the 2 s of V-02.
+// slower than the edges at 0.2 m/s (one every ~51 ms), and at most ~0.95 s, so t* + T_f stays
+// within 2 s and a stall is detected inside the 3 s cut of V-02.
 constexpr float WHEEL_SETTLING_TIME = 0.5f;  // t_s (s)
 
 // Discrete design at T_C. With the zero-order hold of the PWM and the one-cycle delay of the
