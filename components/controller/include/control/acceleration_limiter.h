@@ -3,9 +3,9 @@
 #include "control/twist.h"
 
 // Asymmetric ramp on the effective reference (ADR 023): the commanded speed reaches the motors
-// gradually, at most A_ACCEL while speeding up and A_DEC (steeper) while slowing down, so the
-// torque on the gearbox never comes as a step. The angular limits are 2·a / b, so each wheel stays
-// within the linear limits.
+// gradually, at most a_acel while speeding up and a_dec (steeper) while slowing down, so the
+// torque on the gearbox never comes as a step. The angular limits are 2·a / L_rodas, so each
+// wheel stays within the linear limits.
 class AccelerationLimiter
 {
     public:

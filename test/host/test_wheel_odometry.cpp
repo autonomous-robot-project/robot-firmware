@@ -1,6 +1,6 @@
 // Unit test of WheelOdometry on the host, with synthetic edge counts. Each new edge must be a
 // travel of s in the locked direction of its wheel (ADR 048): equal counts give a straight line,
-// opposite directions a turn in place of 2 s / b per edge pair, and the count may wrap.
+// opposite directions a turn in place of 2 s / L_rodas per edge pair, and the count may wrap.
 // Criticality: T1, evidence (robot-docs codigo.md).
 
 #include <cmath>
@@ -53,7 +53,7 @@ static void test_turn_in_place()
 static void test_quarter_turn_then_forward()
 {
     WheelOdometry odometry;
-    // Turn left until theta reaches pi/2, one edge pair at a time, then drive forward.
+    // Turn left until θ reaches π/2, one edge pair at a time, then drive forward.
     uint32_t left = 0;
     uint32_t right = 0;
     while (odometry.pose().theta < std::numbers::pi_v<float> / 2.0f)

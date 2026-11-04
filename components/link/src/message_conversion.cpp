@@ -112,7 +112,7 @@ static builtin_interfaces__msg__Time to_time(int64_t stamp_ns)
     };
 }
 
-// The heading as a rotation about z: (0, 0, sin(theta/2), cos(theta/2)).
+// The heading as a rotation about z: (0, 0, sin(θ/2), cos(θ/2)).
 static geometry_msgs__msg__Quaternion to_quaternion(float heading)
 {
     return {

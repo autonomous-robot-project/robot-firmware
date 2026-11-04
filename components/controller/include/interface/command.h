@@ -17,7 +17,7 @@ struct Command
     public:
         Behavior behavior = Behavior::TWIST;
         float linear = 0.0f;   // TWIST: v (m/s)
-        float angular = 0.0f;  // TWIST: omega (rad/s)
+        float angular = 0.0f;  // TWIST: ω (rad/s)
         float theta = 0.0f;    // TURN_TO: heading in odom (rad)
         float x = 0.0f;        // GO_TO: target x in odom (m)
         float y = 0.0f;        // GO_TO: target y in odom (m)

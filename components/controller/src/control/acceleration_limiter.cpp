@@ -11,13 +11,13 @@ Twist AccelerationLimiter::limit(const Twist &target)
 
 AccelerationLimiter::Axis AccelerationLimiter::make_linear_axis()
 {
-    return Axis{{.acceleration = A_ACCEL, .deceleration = A_DEC}};
+    return Axis{{.acceleration = A_ACEL, .deceleration = A_DEC}};
 }
 
 AccelerationLimiter::Axis AccelerationLimiter::make_angular_axis()
 {
     return Axis{{
-        .acceleration = 2.0f * A_ACCEL / TRACK_WIDTH,
+        .acceleration = 2.0f * A_ACEL / TRACK_WIDTH,
         .deceleration = 2.0f * A_DEC / TRACK_WIDTH,
     }};
 }

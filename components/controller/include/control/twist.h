@@ -1,6 +1,6 @@
 #pragma once
 
-// Planar twist of the robot in base_link: linear speed v (m/s) and angular speed omega (rad/s).
+// Planar twist of the robot in base_link: linear speed v (m/s) and angular speed ω (rad/s).
 struct Twist
 {
     public:

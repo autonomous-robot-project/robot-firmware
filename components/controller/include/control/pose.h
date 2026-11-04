@@ -9,7 +9,7 @@ struct Position
         float y = 0.0f;
 };
 
-// Pose of the robot in odom (ADR 024, 048): position x, y (m) and heading theta (rad). theta
+// Pose of the robot in odom (ADR 024, 048): position x, y (m) and heading θ (rad). θ
 // accumulates over the turns; the behaviours use it only through sin, cos or a normalized error.
 struct Pose
 {

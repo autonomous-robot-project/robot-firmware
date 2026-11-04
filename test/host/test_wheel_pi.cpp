@@ -162,7 +162,7 @@ static void test_fast_reversal_with_encoder()
 {
     constexpr float start = 0.2f;
     constexpr float target = -0.09f;
-    constexpr float ramp = 0.75f;  // m/s², A_DEC + A_ACCEL at the wheel
+    constexpr float ramp = 0.75f;  // m/s², a_dec + a_acel at the wheel
     ClosedLoopWheel wheel;
     constexpr int one_second = 100;
     for (int cycle = 0; cycle < one_second; cycle++)

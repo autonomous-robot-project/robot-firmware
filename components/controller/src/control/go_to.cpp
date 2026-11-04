@@ -16,7 +16,7 @@ Twist go_to(const Position &target, const Pose &pose)
     const float approach_speed = std::min(V_MAX, std::sqrt(2.0f * A_DEC_PROFILE * distance_error));
     const float linear = approach_speed * std::max(0.0f, std::cos(heading_error));
 
-    // The weight takes omega to zero at the target, where e_theta is undefined.
+    // The weight takes ω to zero at the target, where e_θ is undefined.
     const float distance_weight = std::min(1.0f, distance_error / D_0);
     const float steering = K_OMEGA * std::sin(heading_error) * distance_weight;
     const float angular = std::clamp(steering, -OMEGA_MAX, OMEGA_MAX);

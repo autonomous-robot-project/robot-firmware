@@ -24,29 +24,29 @@ constexpr int ENCODER_SLOTS = 20;           // N, rising edges per turn
 constexpr float WHEEL_TRAVEL_PER_EDGE = std::numbers::pi_v<float> * WHEEL_DIAMETER_M /
                                         ENCODER_SLOTS;
 
-// --- Reference: acceleration limits (ADR 023) and inverse kinematics; provisional values ---
-constexpr float A_ACCEL = 0.25f;  // m/s², limited by the current and the gearbox (robot-docs#27)
-constexpr float A_DEC = 0.5f;     // m/s², limited by slip; steeper than A_ACCEL (robot-docs#27)
-// b (m), wheel center to center: mean of 164 mm outside, 114 mm inside (robot-docs#25)
+// --- Reference: acceleration limits (ADR 023) and inverse kinematics ---
+constexpr float A_ACEL = 0.25f;  // a_acel (m/s²), adopted for the bench (ADR 023)
+constexpr float A_DEC = 0.5f;    // a_dec (m/s²), adopted for the bench, steeper (ADR 023)
+// L_rodas (m), wheel center to center: mean of 164 mm outside, 114 mm inside (nota 0018)
 constexpr float TRACK_WIDTH = 0.139f;
 
 // --- Convergence profiles of TURN_TO and GO_TO (ADR 030); provisional values ---
 // The profiles decelerate a little below the limit of the ramp, as margin for the discretization.
 constexpr float A_DEC_PROFILE = 0.9f * A_DEC;                            // m/s²
-constexpr float ALPHA_DEC_PROFILE = 2.0f * A_DEC_PROFILE / TRACK_WIDTH;  // alpha_dec (rad/s²)
+constexpr float ALPHA_DEC_PROFILE = 2.0f * A_DEC_PROFILE / TRACK_WIDTH;  // α_dec (rad/s²)
 constexpr float V_MAX = 0.2f;  // v_max (m/s): the speed of the trials, until robot-docs#27
-// omega_max (rad/s): turning in place, the wheel does not go above v_max.
+// ω_max (rad/s): turning in place, the wheel does not go above v_max.
 constexpr float OMEGA_MAX = 2.0f * V_MAX / TRACK_WIDTH;
-// K_omega (1/s): heading time constant of 1 s, twice the settling time of the wheel.
+// K_ω (1/s): heading time constant of 1 s, twice the settling time of the wheel.
 constexpr float K_OMEGA = 1.0f;
-constexpr float D_0 = 0.1f;  // d_0 (m): below it the steering of GO_TO fades out (2 eps_d, V-01)
+constexpr float D_0 = 0.1f;  // d_0 (m): below it the steering of GO_TO fades out (2 ε_d, V-01)
 
 // --- Wheel PI: gains from the motor model and the settling time ---
-// Motor as a first-order plant, speed / duty = K / (tau·s + 1), from characterize.py.
-// K, (m/s) per unit of duty, and tau from the encoder AO run, wheels suspended (robot-docs nota
-// 0010): K from 1.0 to 1.45 and tau from 30 to 57 ms over the wheels and directions; the medians.
+// Motor as a first-order plant, speed / duty = K / (τ·s + 1), from characterize.py.
+// K, (m/s) per unit of duty, and τ from the encoder AO run, wheels suspended (robot-docs nota
+// 0010): K from 1.0 to 1.45 and τ from 30 to 57 ms over the wheels and directions; the medians.
 constexpr float MOTOR_GAIN = 1.3f;
-constexpr float MOTOR_TIME_CONSTANT = 0.04f;  // tau (s)
+constexpr float MOTOR_TIME_CONSTANT = 0.04f;  // τ (s)
 // Settling time (2 %) of the wheel speed, a design choice: at least ~0.4 s, so the closed loop is
 // slower than the edges at 0.2 m/s (one every ~51 ms), and at most ~0.95 s, so a stall is detected
 // within the 2 s of V-02.

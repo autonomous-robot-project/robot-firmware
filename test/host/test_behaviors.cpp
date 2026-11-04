@@ -1,6 +1,6 @@
 // Unit test of TURN_TO and GO_TO on the host (ADR 024, 030), with synthetic poses. TURN_TO must
 // turn the shortest way whatever the turn of the odometry heading, with the sqrt profile limited
-// to omega_max; GO_TO must slow down to zero at the target, not advance with the target behind,
+// to ω_max; GO_TO must slow down to zero at the target, not advance with the target behind,
 // and steer towards the target with a weight that fades out near it.
 
 #include <cmath>
@@ -33,7 +33,7 @@ static void test_turn_to_profile()
 
 static void test_turn_to_in_any_turn()
 {
-    // The odometry accumulated 6.5 rad; the target pi/2 ahead given in the first turn.
+    // The odometry accumulated 6.5 rad; the target π/2 ahead given in the first turn.
     const Pose pose{.theta = 6.5f};
     const float target = std::remainder(6.5f, 2.0f * PI) + PI / 2.0f;
     check(turn_to(target, pose).angular > 0.0f, "target ahead in another turn: shortest way");
