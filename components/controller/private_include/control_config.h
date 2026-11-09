@@ -87,7 +87,7 @@ constexpr float T_VEL_SECONDS = std::chrono::duration<float>(T_VEL).count();
 static_assert(T_VEL_SECONDS > WHEEL_TRAVEL_PER_EDGE / V_MIN);
 
 // --- Front obstacle reflex (ADR 021, V-03; robot-docs nota 0015) ---
-constexpr float D_STOP = 0.15f;  // d_stop (m): provisional until the floor trials (robot-docs#27)
+constexpr float D_STOP = 0.15f;  // d_stop (m): adopted for the bench (ADR 021)
 // T_S: a ranging older than this is not trusted, about three of the longest intervals between
 // rangings (32 ms); v_max T_S = 20 mm travelled blind.
 constexpr std::chrono::milliseconds T_S{100};
