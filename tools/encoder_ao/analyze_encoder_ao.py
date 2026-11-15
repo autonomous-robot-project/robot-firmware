@@ -12,6 +12,7 @@ from dataclasses import dataclass
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.ticker import FuncFormatter
 from scipy.optimize import curve_fit
 
 WHEEL_TRAVEL_PER_SLOT = np.pi * 0.065 / 20  # s (m): D = 65 mm, N = 20 (V-02)
@@ -26,6 +27,10 @@ AO_COLUMN = {'L': 1, 'R': 2}
 TRACE, SLOT, FIT = '#2a78d6', '#1baf7a', '#52514e'
 MUTED, GRID, SURFACE = '#52514e', '#e4e3df', '#fcfcfb'
 SHADES = LinearSegmentedColormap.from_list('', ['#bcd5f3', '#0d3a73'])
+ADOPTED_GAIN = 1.3      # K (m/s per duty), median of the four wheel/direction pairs (nota 0010)
+ADOPTED_TAU_S = 0.04    # τ (s), median of the steps with duty ≥ 0.3 (nota 0010)
+THESIS_WIDTH_IN = 6.3   # text width of the monograph page, as in plot_final_round
+THESIS_EXAMPLE = ('L', -1, 0.48)  # wheel, direction and duty closest to the adopted model (RMS 5 %)
 
 plt.rcParams.update({
     'figure.facecolor': SURFACE, 'axes.facecolor': SURFACE, 'axes.edgecolor': GRID,
@@ -229,6 +234,36 @@ def plot_brakes(run, prefix):
     plt.close(fig)
 
 
+def format_decimal(value, _position=None):
+    """Tick label with a decimal comma, as in the monograph."""
+    return f'{value:g}'.replace('.', ',')
+
+
+def plot_thesis_step(run, prefix):
+    """One step of the monograph: the step closest to the adopted model, against that model."""
+    wheel, direction, duty = THESIS_EXAMPLE
+    start = next(time for time, value in run.steps if np.isclose(value, direction * duty))
+    times = run.slots_between(wheel, start, start + STEP_S)[:, 0]
+    t = (times[1:] + times[:-1]) / 2 - start
+    v = WHEEL_TRAVEL_PER_SLOT / np.diff(times)
+    curve = np.linspace(0, 0.5, 200)
+    model = ADOPTED_GAIN * duty * (1 - np.exp(-curve / ADOPTED_TAU_S))
+    fig, ax = plt.subplots(figsize=(THESIS_WIDTH_IN, 2.4), facecolor='white')
+    ax.set_facecolor('white')
+    ax.plot(t, v, 'o', ms=3, color=TRACE, label='Velocidade medida entre fendas')
+    ax.plot(curve, model, color=FIT, lw=1.2, label='Modelo adotado')
+    ax.set_xlim(0, 0.5)
+    ax.set_ylim(bottom=0)
+    ax.xaxis.set_major_formatter(FuncFormatter(format_decimal))
+    ax.yaxis.set_major_formatter(FuncFormatter(format_decimal))
+    ax.set_xlabel('Tempo desde o degrau (s)')
+    ax.set_ylabel('Velocidade (m/s)')
+    ax.legend(loc='lower right')
+    fig.tight_layout()
+    fig.savefig(f'{prefix}_degrau_monografia.pdf', facecolor='white')
+    plt.close(fig)
+
+
 def main():
     run = Run.from_file(sys.argv[1])
     prefix = sys.argv[2]
@@ -236,6 +271,7 @@ def main():
     plot_ao(run, prefix)
     plot_steady(run, prefix)
     plot_steps(run, prefix)
+    plot_thesis_step(run, prefix)
     plot_brakes(run, prefix)
 
 
